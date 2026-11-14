@@ -1,0 +1,11 @@
+{
+  "title": "earth+br",
+  "description": "Ajuda pequenos e médios produtores do Semiárido a planejar culturas e rotações com dados da NASA, reduzindo riscos climáticos e protegendo água e solo.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

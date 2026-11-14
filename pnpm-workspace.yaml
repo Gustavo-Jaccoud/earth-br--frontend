@@ -1,0 +1,4 @@
+allowBuilds:
+  pnpm: set this to true or false
+minimumReleaseAgeExclude:
+  - lucide-react@1.73.0
