@@ -13,23 +13,23 @@ import Reports, { ReportView } from '@/pages/Reports'
 import Settings from '@/pages/Settings'
 
 const TITLES: [RegExp, string][] = [
-  [/^\/$/, 'Terra+ — Inteligência ambiental para uma agricultura adaptativa'],
-  [/^\/propriedades\/nova/, 'Cadastrar propriedade · Terra+'],
-  [/^\/propriedades/, 'Minhas propriedades · Terra+'],
-  [/^\/carregando/, 'Buscando dados · Terra+'],
-  [/^\/app\/partida\/relatorio/, 'Relatório da Partida rápida · Terra+'],
-  [/^\/app\/partida/, 'Partida rápida · Terra+'],
-  [/^\/app\/analise/, 'Análise da terra · Terra+'],
-  [/^\/app\/relatorios/, 'Meus relatórios · Terra+'],
-  [/^\/app\/configuracoes/, 'Configurações · Terra+'],
-  [/^\/app/, 'Dashboard · Terra+'],
+  [/^\/$/, 'earth + BR — Environmental intelligence for adaptive farming'],
+  [/^\/propriedades\/nova/, 'Register property · earth + BR'],
+  [/^\/propriedades/, 'My properties · earth + BR'],
+  [/^\/carregando/, 'Fetching data · earth + BR'],
+  [/^\/app\/partida\/relatorio/, 'Quick start report · earth + BR'],
+  [/^\/app\/partida/, 'Quick start · earth + BR'],
+  [/^\/app\/analise/, 'Land analysis · earth + BR'],
+  [/^\/app\/relatorios/, 'My reports · earth + BR'],
+  [/^\/app\/configuracoes/, 'Settings · earth + BR'],
+  [/^\/app/, 'Dashboard · earth + BR'],
 ]
 
 function Routes() {
   const { path } = useRoute()
   useScrollTop(path)
   useEffect(() => {
-    document.title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Terra+'
+    document.title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'earth + BR'
   }, [path])
 
   if (path === '/') return <Landing />

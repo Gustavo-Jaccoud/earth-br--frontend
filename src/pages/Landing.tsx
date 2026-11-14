@@ -7,22 +7,22 @@ import { ThemeToggle } from '@/components/AppShell'
 import { getIcon } from '@/lib/icons'
 import { Link } from '@/lib/router'
 
-const SOURCE_ORDER: SourceId[] = ['power', 'smap', 'gpm', 'modis', 'ecostress', 'soilgrids']
+const SOURCE_ORDER: SourceId[] = ['power', 'smap', 'gpm', 'modis', 'gaez']
 
 export default function Landing() {
   return (
     <div className="bg-bg">
-      {/* Topo */}
+      {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <Link to="/" aria-label="Terra+, página inicial">
+          <Link to="/" aria-label="earth + BR, home page">
             <Logo />
           </Link>
-          <nav aria-label="Principal" className="hidden items-center gap-1 md:flex">
+          <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {[
-              ['#problema', 'O problema'],
-              ['#como-funciona', 'Como funciona'],
-              ['#dados', 'Dados'],
+              ['#problema', 'The problem'],
+              ['#como-funciona', 'How it works'],
+              ['#dados', 'Data'],
             ].map(([href, label]) => (
               <a key={href} href={href} onClick={(e) => { e.preventDefault(); document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' }) }} className="rounded-full px-4 py-2.5 text-[16px] text-ink hover:bg-tint">
                 {label}
@@ -32,7 +32,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <ThemeToggle compact />
             <ButtonLink to="/propriedades" variant="secondary" size="sm">
-              <LogIn className="size-[18px]" aria-hidden /> Entrar
+              <LogIn className="size-[18px]" aria-hidden /> Sign in
             </ButtonLink>
           </div>
         </div>
@@ -49,30 +49,30 @@ export default function Landing() {
           <div className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[rgba(10,40,27,0.6)] to-transparent" aria-hidden />
           <div className="animate-rise mx-auto flex max-w-4xl flex-col items-center px-5 py-20 text-center sm:px-8 lg:py-28">
             <p className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-[15px] font-bold text-white ring-1 ring-white/25 backdrop-blur">
-              <Satellite className="size-[18px]" aria-hidden /> Dados da NASA para o Semiárido
+              <Satellite className="size-[18px]" aria-hidden /> NASA data for Brazil’s semi-arid region
             </p>
             <h1 className="text-[38px] leading-[1.1] !text-white sm:text-[52px] lg:text-[60px]">
-              Plante com mais certeza, mesmo quando o clima não dá certeza nenhuma.
+              Plant with more confidence, even when the weather gives you none.
             </h1>
             <p className="mt-6 max-w-2xl text-[19px] leading-relaxed text-white/90 sm:text-[21px]">
-              O Terra+ usa dados de satélite da NASA para ajudar você a escolher a melhor rotação de culturas para sua terra, economizando água e protegendo o solo.
+              earth + BR uses NASA and FAO data to help you choose the best crop rotation for your land, saving water and protecting the soil.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <ButtonLink to="/propriedades" variant="inverse" size="lg" className="min-w-52">
-                Começar <ArrowRight className="size-5" aria-hidden />
+                Get started <ArrowRight className="size-5" aria-hidden />
               </ButtonLink>
               <a href="#como-funciona" onClick={(e) => { e.preventDefault(); document.querySelector('#como-funciona')?.scrollIntoView({ behavior: 'smooth' }) }} className="rounded-full px-5 py-3 font-bold text-white underline-offset-4 hover:bg-white/10 hover:underline">
-                Ver como funciona
+                See how it works
               </a>
             </div>
           </div>
         </section>
 
-        {/* Problema */}
+        {/* The problem */}
         <section id="problema" className="scroll-mt-20 bg-tint py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <p className="mb-3 font-bold text-primary">O problema</p>
-            <h2 className="max-w-3xl text-[30px] sm:text-[36px]">O sertão mudou. A informação existe, mas não chega a quem planta.</h2>
+            <p className="mb-3 font-bold text-primary">The problem</p>
+            <h2 className="max-w-3xl text-[30px] sm:text-[36px]">The backlands have changed. The information exists, but it does not reach those who farm.</h2>
             <div className="mt-12 grid gap-6 md:grid-cols-3">
               {LANDING.problems.map((p) => {
                 const Icon = getIcon(p.icon)
@@ -91,15 +91,15 @@ export default function Landing() {
                 )
               })}
             </div>
-            <p className="mt-6 text-[14px] text-muted">Fontes: Inpe/Cemaden (2023) · IBGE, Censo Agro 2017 · NASA POWER</p>
+            <p className="mt-6 text-[14px] text-muted">Sources: Inpe/Cemaden (2023) · IBGE, 2017 Agricultural Census · NASA POWER</p>
           </div>
         </section>
 
-        {/* Como funciona */}
+        {/* How it works */}
         <section id="como-funciona" className="scroll-mt-20 py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <p className="mb-3 font-bold text-primary">Como funciona</p>
-            <h2 className="max-w-3xl text-[30px] sm:text-[36px]">Do espaço até a sua roça, em quatro passos.</h2>
+            <p className="mb-3 font-bold text-primary">How it works</p>
+            <h2 className="max-w-3xl text-[30px] sm:text-[36px]">From space to your field, in four steps.</h2>
             <ol className="relative mt-14 grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
               <div className="absolute left-6 right-6 top-6 hidden h-0.5 bg-line lg:block" aria-hidden />
               {LANDING.steps.map((s, i) => {
@@ -110,7 +110,7 @@ export default function Landing() {
                       <span className="inline-flex size-12 items-center justify-center rounded-full bg-primary text-on-primary ring-8 ring-bg">
                         <Icon className="size-6" aria-hidden />
                       </span>
-                      <span className="font-display text-[15px] font-bold text-muted">Passo {i + 1}</span>
+                      <span className="font-display text-[15px] font-bold text-muted">Step {i + 1}</span>
                     </div>
                     <h3 className="text-[20px]">{s.title}</h3>
                     <p className="mt-2 text-[17px] text-muted">{s.text}</p>
@@ -121,19 +121,19 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Dados de verdade */}
+        {/* Real data */}
         <section id="dados" className="scroll-mt-20 bg-[#0F3D2A] py-20 text-white lg:py-24 dark:bg-[#0A1A12]">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr] lg:items-end">
               <div>
-                <p className="mb-3 font-bold text-[#7FD3A5]">Dados de verdade</p>
-                <h2 className="text-[30px] !text-white sm:text-[36px]">Ciência aberta, explicada em linguagem de gente.</h2>
+                <p className="mb-3 font-bold text-[#7FD3A5]">Real data</p>
+                <h2 className="text-[30px] !text-white sm:text-[36px]">Open science, explained in plain language.</h2>
               </div>
               <p className="text-[18px] text-white/80">
-                Cada número no Terra+ mostra de onde veio e quando foi atualizado. Passe o mouse (ou toque) em cada fonte para saber o que ela mede.
+                Every number in earth + BR shows where it came from. Hover over (or tap) each source to learn what it measures.
               </p>
             </div>
-            <ul className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <ul className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               {SOURCE_ORDER.map((id) => {
                 const s = DATA_SOURCES[id]
                 return (
@@ -155,15 +155,15 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* CTA final */}
+        {/* Final call to action */}
         <section className="px-5 pb-20 sm:px-8">
           <div className="mx-auto flex max-w-7xl flex-col items-start gap-8 rounded-[24px] bg-tint p-8 sm:p-14 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="max-w-2xl text-[30px] sm:text-[40px]">Sua terra merece decisões baseadas em dados.</h2>
-              <p className="mt-3 text-[18px] text-muted">Leva menos de 5 minutos para cadastrar sua propriedade.</p>
+              <h2 className="max-w-2xl text-[30px] sm:text-[40px]">Your land deserves decisions based on data.</h2>
+              <p className="mt-3 text-[18px] text-muted">It takes less than 5 minutes to register your property.</p>
             </div>
             <ButtonLink to="/propriedades" size="lg" className="min-w-52">
-              Começar <ArrowRight className="size-5" aria-hidden />
+              Get started <ArrowRight className="size-5" aria-hidden />
             </ButtonLink>
           </div>
         </section>
@@ -173,14 +173,14 @@ export default function Landing() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 md:grid-cols-[1.2fr_1fr]">
           <div>
             <Logo />
-            <p className="mt-4 text-[16px] text-muted">Projeto desenvolvido para o NASA Space Apps Challenge 2026 — desafio “Field Shift: Adapting Farms with NASA Data”.</p>
+            <p className="mt-4 text-[16px] text-muted">Project built for the NASA Space Apps Challenge 2026 — “Field Shift: Adapting Farms with NASA Data” challenge.</p>
           </div>
           <div>
-            <h2 className="mb-3 font-sans text-[16px] font-bold text-ink">Aviso importante</h2>
-            <SupportNote>O Terra+ é uma ferramenta de apoio e não substitui a orientação técnica local.</SupportNote>
+            <h2 className="mb-3 font-sans text-[16px] font-bold text-ink">Important notice</h2>
+            <SupportNote>earth + BR is a decision-support tool and does not replace local technical guidance.</SupportNote>
           </div>
         </div>
-        <div className="border-t border-line py-5 text-center text-[14px] text-muted">Lorem ipsum dolor sit amet · Dados: NASA, JAXA e ISRIC</div>
+        <div className="border-t border-line py-5 text-center text-[14px] text-muted">Data: NASA, JAXA and FAO</div>
       </footer>
     </div>
   )

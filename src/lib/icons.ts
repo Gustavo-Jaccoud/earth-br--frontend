@@ -47,7 +47,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-/** Permite que o arquivo de dados referencie ícones por nome. */
+/** Lets the data file reference icons by name. */
 export const ICONS: Record<string, LucideIcon> = {
   Ban,
   Banknote,

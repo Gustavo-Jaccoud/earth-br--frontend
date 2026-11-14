@@ -1,190 +1,116 @@
-import { CloudRain, Droplets, Flame, Mountain, Sprout, TriangleAlert, type LucideIcon } from 'lucide-react'
-import { useId } from 'react'
-import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { MONTHS_SHORT, type CalendarBand, type CropSegment, type VariableId } from '@/data/mock'
+import { Check, CloudRain, Sprout, type LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { MONTHS_SHORT, type CalendarBand, type CropSegment } from '@/data/mock'
+import { api, type LonLat, type MapLayer, type MapLayerId, type MonthlyValue } from '@/lib/api'
+import LeafletMap from './LeafletMap'
 import { cx } from './ui'
 
-/* =========================== Mapa (SVG) =========================== */
+/* ============================== Map ============================== */
 
-export type MapLayer = VariableId | 'none'
+const LAYER_IDS: MapLayerId[] = ['soil_moisture', 'precipitation', 'ndvi']
+const LAYER_TITLE: Record<MapLayerId, string> = { soil_moisture: 'Soil moisture', precipitation: 'Rainfall', ndvi: 'Vegetation (NDVI)' }
 
-const PALETTES: Record<VariableId, { stops: string[]; low: string; high: string; title: string }> = {
-  umidade: { stops: ['#B9814A', '#E2C68D', '#9FD0C8', '#2D7FB8'], low: 'Seco', high: 'Úmido', title: 'Umidade do solo' },
-  precip: { stops: ['#F1E9D2', '#B7D6E8', '#5EA3D1', '#1F5F99'], low: 'Pouca chuva', high: 'Muita chuva', title: 'Chuva acumulada' },
-  tar: { stops: ['#F7E39A', '#F2B45A', '#E0703A', '#B42318'], low: 'Mais fresco', high: 'Mais quente', title: 'Temperatura do ar' },
-  tsup: { stops: ['#F7E39A', '#F2B45A', '#E0703A', '#9A1D13'], low: 'Mais fresco', high: 'Mais quente', title: 'Calor da superfície' },
-  ndvi: { stops: ['#A66A3A', '#D9C27A', '#8CC46A', '#1E7A4C'], low: 'Pouca vegetação', high: 'Vegetação saudável', title: 'Vegetação (NDVI)' },
-  solo: { stops: ['#EBD9B4', '#C9A06A', '#8E6239', '#5A3B20'], low: 'Pouca matéria orgânica', high: 'Mais matéria orgânica', title: 'Matéria orgânica do solo' },
+/** "2026-09" → "Sep 2026" (or "Sep '26" when `short`). Anything else is returned unchanged. */
+export function monthLabel(label: string, short = false) {
+  const m = /^(\d{4})-(\d{2})/.exec(label)
+  if (!m) return label
+  const month = new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString('en-US', { month: 'short' })
+  return short ? `${month} '${m[1].slice(2)}` : `${month} ${m[1]}`
 }
 
-function lerpColor(stops: string[], t: number) {
-  const x = Math.max(0, Math.min(0.999, t)) * (stops.length - 1)
-  const i = Math.floor(x)
-  const f = x - i
-  const a = parseInt(stops[i].slice(1), 16)
-  const b = parseInt(stops[i + 1].slice(1), 16)
-  const mix = (sh: number) => Math.round(((a >> sh) & 255) * (1 - f) + ((b >> sh) & 255) * f)
-  return `rgb(${mix(16)},${mix(8)},${mix(0)})`
-}
-
-const BLOBS = [
-  { x: 30, y: 30, r: 22, v: 0.55 },
-  { x: 62, y: 32, r: 18, v: 0.2 },
-  { x: 78, y: 54, r: 20, v: 0.35 },
-  { x: 40, y: 62, r: 24, v: 0.42 },
-  { x: 22, y: 56, r: 16, v: 0.7 },
-  { x: 58, y: 74, r: 18, v: 0.3 },
-  { x: 50, y: 46, r: 20, v: 0.5 },
-]
-
-export type Zone = { id: string; kind: 'water' | 'erosion' | 'heat'; label: string; x: number; y: number; r: number; note: string }
-
-const ZONE_STYLE: Record<Zone['kind'], { color: string; icon: LucideIcon; short: string }> = {
-  water: { color: '#1F5F99', icon: Droplets, short: 'Estresse hídrico' },
-  erosion: { color: '#8A5A12', icon: Mountain, short: 'Risco de erosão' },
-  heat: { color: '#B42318', icon: Flame, short: 'Área mais quente' },
-}
-
-const SX = 1.6 // escala horizontal (viewBox 160 × 100)
-
-function scalePoints(shape: string) {
-  return shape
-    .split(' ')
-    .map((p) => {
-      const [x, y] = p.split(',').map(Number)
-      return `${x * SX},${y}`
-    })
-    .join(' ')
-}
-
-export function PropertyMap({
-  shape,
-  layer = 'umidade',
-  intensity = 1,
-  zones = [],
-  showPin,
-  className,
-  label,
-  invertFor = [],
-}: {
-  shape: string
-  layer?: MapLayer
-  intensity?: number
-  zones?: Zone[]
-  showPin?: boolean
-  className?: string
-  label: string
-  invertFor?: VariableId[]
-}) {
-  const uid = useId().replace(/:/g, '')
-  const pts = scalePoints(shape)
-  const palette = layer !== 'none' ? PALETTES[layer] : null
-  const invert = layer !== 'none' && (layer === 'tar' || layer === 'tsup' || invertFor.includes(layer))
+/** Colour key of a backend map layer plus the field-outline entry. */
+export function MapLegend({ title, unit, legend = [], className }: { title?: string; unit?: string; legend?: { color: string; label: string }[]; className?: string }) {
   return (
-    <svg viewBox="0 0 160 100" role="img" aria-label={label} className={cx('block h-full w-full', className)} preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <clipPath id={`clip-${uid}`}>
-          <polygon points={pts} />
-        </clipPath>
-        <filter id={`blur-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="6" />
-        </filter>
-        <pattern id={`grid-${uid}`} width="10" height="10" patternUnits="userSpaceOnUse">
-          <path d="M10 0H0V10" fill="none" stroke="var(--c-line)" strokeWidth="0.3" />
-        </pattern>
-      </defs>
-      {/* Terreno de fundo */}
-      <rect width="160" height="100" fill="var(--c-tint-2)" />
-      <rect width="160" height="100" fill={`url(#grid-${uid})`} />
-      {[18, 32, 46, 60, 74].map((o, i) => (
-        <path
-          key={o}
-          d={`M-5 ${o + 6} C 30 ${o - 8 + i * 2}, 70 ${o + 14}, 110 ${o - 2} S 150 ${o + 10}, 170 ${o}`}
-          fill="none"
-          stroke="var(--c-muted)"
-          strokeOpacity="0.22"
-          strokeWidth="0.45"
-        />
+    <div className={cx('flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]', className)}>
+      {title && (
+        <span className="font-bold text-ink">
+          {title}
+          {unit ? ` (${unit})` : ''}
+        </span>
+      )}
+      {legend.map((l) => (
+        <span key={l.label} className="inline-flex items-center gap-1.5 text-ink">
+          <span className="size-3.5 rounded-[3px] ring-1 ring-line" style={{ background: l.color }} aria-hidden /> {l.label}
+        </span>
       ))}
-      <path d="M-5 92 C 40 80, 70 96, 120 84 S 160 70, 170 74" fill="none" stroke="#5EA3D1" strokeOpacity="0.55" strokeWidth="1.6" />
-      <path d="M118 -5 L 104 40 L 112 105" fill="none" stroke="var(--c-muted)" strokeOpacity="0.35" strokeWidth="1.1" strokeDasharray="3 2" />
-
-      {/* Camada de dados */}
-      {palette && (
-        <g clipPath={`url(#clip-${uid})`}>
-          <rect width="160" height="100" fill={lerpColor(palette.stops, invert ? 0.45 : 0.4)} />
-          <g filter={`url(#blur-${uid})`}>
-            {BLOBS.map((b, i) => {
-              let v = b.v * intensity
-              if (invert) v = 1 - v * 0.9
-              return <circle key={i} cx={b.x * SX} cy={b.y} r={b.r} fill={lerpColor(palette.stops, v)} opacity="0.95" />
-            })}
-          </g>
-        </g>
-      )}
-      <polygon points={pts} fill={palette ? 'none' : 'var(--c-tint)'} stroke="var(--c-deep)" strokeWidth="0.9" strokeLinejoin="round" />
-      <polygon points={pts} fill="none" stroke="#FFFFFF" strokeOpacity="0.7" strokeWidth="0.35" strokeDasharray="1.5 1.5" />
-
-      {zones.map((z) => {
-        const st = ZONE_STYLE[z.kind]
-        return (
-          <g key={z.id}>
-            <circle cx={z.x * SX} cy={z.y} r={z.r} fill={st.color} fillOpacity="0.14" stroke={st.color} strokeWidth="0.8" strokeDasharray="2 1.4" />
-            <circle cx={z.x * SX} cy={z.y} r="3.2" fill="#fff" stroke={st.color} strokeWidth="0.9" />
-            <circle cx={z.x * SX} cy={z.y} r="1.4" fill={st.color} />
-          </g>
-        )
-      })}
-
-      {showPin && (
-        <g transform="translate(80 44)">
-          <ellipse cx="0" cy="9" rx="4" ry="1.4" fill="#000" opacity="0.2" />
-          <path d="M0 9 C -5 2 -6 -1 -6 -3 A 6 6 0 1 1 6 -3 C 6 -1 5 2 0 9Z" fill="var(--c-primary)" stroke="#fff" strokeWidth="0.8" />
-          <circle cx="0" cy="-3" r="2.2" fill="#fff" />
-        </g>
-      )}
-    </svg>
-  )
-}
-
-export function MapLegend({ layer, zones = [], className }: { layer: MapLayer; zones?: Zone[]; className?: string }) {
-  const palette = layer !== 'none' ? PALETTES[layer] : null
-  const invert = layer === 'tar' || layer === 'tsup'
-  const kinds = Array.from(new Set(zones.map((z) => z.kind)))
-  return (
-    <div className={cx('flex flex-wrap items-center gap-x-6 gap-y-3 text-[14px]', className)}>
-      {palette && (
-        <div className="min-w-56">
-          <p className="mb-1 font-bold text-ink">{palette.title}</p>
-          <div className="h-3 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${(invert ? palette.stops : palette.stops).join(',')})` }} />
-          <div className="mt-1 flex justify-between text-muted">
-            <span>{palette.low}</span>
-            <span>{palette.high}</span>
-          </div>
-        </div>
-      )}
-      {kinds.map((k) => {
-        const st = ZONE_STYLE[k]
-        const Icon = st.icon
-        return (
-          <span key={k} className="inline-flex items-center gap-2 text-ink">
-            <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-dashed" style={{ borderColor: st.color, color: st.color }}>
-              <Icon className="size-3.5" aria-hidden />
-            </span>
-            {st.short}
-          </span>
-        )
-      })}
       <span className="inline-flex items-center gap-2 text-ink">
-        <span className="h-0 w-6 border-t-2 border-deep" aria-hidden /> Limite da propriedade
+        <span className="h-0 w-6 border-t-[3px] border-[#2f7d32]" aria-hidden /> Field outline
       </span>
     </div>
   )
 }
 
-export { ZONE_STYLE }
+/**
+ * Interactive map of the field. Satellite layers are shown only when the backend has them
+ * (`/maps/{layer}` answers 404 until the satellite pipeline runs) — otherwise just the outline.
+ */
+export function FieldMap({ polygon, label, className, coords }: { polygon: LonLat[]; label: string; className?: string; coords?: string }) {
+  const [layers, setLayers] = useState<Partial<Record<MapLayerId, MapLayer>>>({})
+  const [layerId, setLayerId] = useState<MapLayerId | null>(null)
+  const [period, setPeriod] = useState('')
 
-/* ============================ Gráficos ============================ */
+  useEffect(() => {
+    let alive = true
+    void Promise.allSettled(LAYER_IDS.map((id) => api.mapLayer(id))).then((results) => {
+      if (!alive) return
+      const found: Partial<Record<MapLayerId, MapLayer>> = {}
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value.periods.length > 0) found[LAYER_IDS[i]] = r.value
+      })
+      setLayers(found)
+      setLayerId(LAYER_IDS.find((id) => found[id]) ?? null)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const available = LAYER_IDS.filter((id) => layers[id])
+  const layer = layerId ? layers[layerId] : undefined
+  const current = layer ? (layer.periods.find((p) => p.period === period) ?? layer.periods[layer.periods.length - 1]) : undefined
+  const chip = (on: boolean) => cx('inline-flex min-h-11 items-center gap-2 rounded-full border-2 px-4 text-[15px] font-bold', on ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-ink hover:border-primary/50')
+
+  return (
+    <div className={className}>
+      {available.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Map layers" className="flex flex-wrap gap-2">
+            {available.map((id) => (
+              <button key={id} type="button" aria-pressed={id === layerId} onClick={() => setLayerId(id)} className={chip(id === layerId)}>
+                {id === layerId && <Check className="size-4" strokeWidth={3} aria-hidden />} {LAYER_TITLE[id]}
+              </button>
+            ))}
+            <button type="button" aria-pressed={layerId === null} onClick={() => setLayerId(null)} className={chip(layerId === null)}>
+              {layerId === null && <Check className="size-4" strokeWidth={3} aria-hidden />} Outline only
+            </button>
+          </div>
+          {layer && current && layer.periods.length > 1 && (
+            <select
+              aria-label="Month shown on the map"
+              value={current.period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="ml-auto min-h-11 rounded-full border-2 border-line bg-surface px-4 text-[15px] text-ink focus:border-primary focus:outline-none"
+            >
+              {layer.periods.map((p) => (
+                <option key={p.period} value={p.period}>
+                  {monthLabel(p.period)}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+      <div className="relative aspect-[16/10] overflow-hidden rounded-[12px] border border-line">
+        <LeafletMap polygon={polygon} overlay={current ? { url: api.staticUrl(current.url), bounds: current.bounds } : null} label={label} className="size-full" />
+        {coords && <span className="pointer-events-none absolute bottom-2 left-2 z-[1] rounded-full bg-surface/90 px-2.5 py-1 text-[13px] text-muted tabular">{coords}</span>}
+      </div>
+      {layer && layerId && current && <MapLegend className="mt-4" title={`${LAYER_TITLE[layerId]} · ${monthLabel(current.period)}`} unit={layer.unit} legend={layer.legend} />}
+    </div>
+  )
+}
+
+/* ============================= Charts ============================= */
 
 const tooltipStyle = {
   background: 'var(--c-surface)',
@@ -195,55 +121,33 @@ const tooltipStyle = {
   fontSize: 15,
 }
 
-export function RainChart({ data }: { data: { month: string; rain: number; avg: number }[] }) {
-  return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 12, bottom: 0, left: -8 }}>
-          <CartesianGrid stroke="var(--c-line)" vertical={false} />
-          <XAxis dataKey="month" tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={{ stroke: 'var(--c-line)' }} interval="preserveStartEnd" />
-          <YAxis tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={false} unit=" mm" width={64} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [`${v} mm`, n]} labelStyle={{ fontWeight: 700 }} />
-          <Legend wrapperStyle={{ fontSize: 15, color: 'var(--c-ink)', paddingTop: 8 }} iconType="plainline" />
-          <Line isAnimationActive={false} type="monotone" dataKey="avg" name="Média histórica (20 anos)" stroke="var(--c-muted)" strokeWidth={2} strokeDasharray="6 5" dot={false} />
-          <Line isAnimationActive={false} type="monotone" dataKey="rain" name="Chuva neste ano" stroke="var(--c-primary)" strokeWidth={3} dot={{ r: 3.5, fill: 'var(--c-primary)' }} activeDot={{ r: 6 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
+/** Monthly value vs. the historical normal, straight from `api.monthlyClimate`. */
 export function SeriesChart({
-  value,
-  reference,
+  months,
   unit,
   valueName,
   refName,
-  cursor,
   height = 'h-64',
   decimals = 0,
 }: {
-  value: number[]
-  reference: number[]
+  months: MonthlyValue[]
   unit: string
   valueName: string
   refName: string
-  cursor?: number
   height?: string
   decimals?: number
 }) {
-  const data = MONTHS_SHORT.map((m, i) => ({ month: m, v: value[i], r: reference[i] }))
-  const fmt = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals })}${unit ? ` ${unit}` : ''}`
+  const data = months.map((m) => ({ month: m.complete ? monthLabel(m.label, true) : `${monthLabel(m.label, true)}*`, v: m.value, r: m.normal }))
+  const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals })
   return (
     <div className={cx(height, 'w-full')}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 12, bottom: 0, left: -4 }}>
           <CartesianGrid stroke="var(--c-line)" vertical={false} />
-          <XAxis dataKey="month" tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={{ stroke: 'var(--c-line)' }} />
-          <YAxis tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={false} width={56} tickFormatter={(n) => Number(n).toLocaleString('pt-BR')} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [fmt(Number(v)), n]} labelStyle={{ fontWeight: 700 }} />
-          <Legend wrapperStyle={{ fontSize: 15, paddingTop: 8 }} iconType="plainline" />
-          {cursor !== undefined && <ReferenceLine x={MONTHS_SHORT[cursor]} stroke="var(--c-warn)" strokeWidth={2} />}
+          <XAxis dataKey="month" tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={{ stroke: 'var(--c-line)' }} interval="preserveStartEnd" />
+          <YAxis tick={{ fill: 'var(--c-muted)', fontSize: 13 }} tickLine={false} axisLine={false} width={56} tickFormatter={(n) => Number(n).toLocaleString('en-US')} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [`${num(Number(v))} ${unit}`, n]} labelStyle={{ fontWeight: 700 }} />
+          <Legend wrapperStyle={{ fontSize: 15, color: 'var(--c-ink)', paddingTop: 8 }} iconType="plainline" />
           <Line isAnimationActive={false} type="monotone" dataKey="r" name={refName} stroke="var(--c-muted)" strokeWidth={2} strokeDasharray="6 5" dot={false} />
           <Line isAnimationActive={false} type="monotone" dataKey="v" name={valueName} stroke="var(--c-primary)" strokeWidth={3} dot={{ r: 3, fill: 'var(--c-primary)' }} activeDot={{ r: 6 }} />
         </LineChart>
@@ -252,7 +156,7 @@ export function SeriesChart({
   )
 }
 
-/* ====================== Linhas do tempo (12 meses) ====================== */
+/* ======================== Timelines (12 months) ======================== */
 
 function splitWrap<T extends { start: number; end: number }>(s: T): T[] {
   return s.start <= s.end ? [s] : [{ ...s, end: 11 }, { ...s, start: 0 }]
@@ -280,7 +184,7 @@ export function MonthAxis({ highlight, className, initials }: { highlight?: numb
 }
 
 export function CropTimeline({ segments, compact }: { segments: CropSegment[]; compact?: boolean }) {
-  // Distribui segmentos sobrepostos em faixas.
+  // Spread overlapping segments over separate lanes.
   const lanes: CropSegment[][] = []
   for (const seg of segments) {
     const parts = splitWrap(seg)
@@ -327,11 +231,9 @@ export function CropTimeline({ segments, compact }: { segments: CropSegment[]; c
   )
 }
 
-const BAND_STYLE: Record<CalendarBand['kind'], { cls: string; icon: LucideIcon }> = {
+const BAND_STYLE: Partial<Record<CalendarBand['kind'], { cls: string; icon: LucideIcon }>> = {
   rain: { cls: 'bg-[#B7D6E8] text-[#123E66]', icon: CloudRain },
   plant: { cls: 'bg-primary text-on-primary', icon: Sprout },
-  critical: { cls: 'bg-warn text-[#2B1C04]', icon: TriangleAlert },
-  bare: { cls: 'bg-[repeating-linear-gradient(135deg,#F4D3CF_0_6px,#E9B6AF_6px_8px)] text-[#7A1A12] ring-1 ring-crit/50', icon: Mountain },
 }
 
 export function LandCalendar({ bands, today }: { bands: CalendarBand[]; today: number }) {
@@ -343,12 +245,12 @@ export function LandCalendar({ bands, today }: { bands: CalendarBand[]; today: n
       </div>
       <ul className="space-y-3">
         {bands.map((b) => {
-          const st = BAND_STYLE[b.kind]
+          const st = BAND_STYLE[b.kind] ?? BAND_STYLE.rain!
           const Icon = st.icon
           return (
             <li key={b.id} className="grid grid-cols-[minmax(0,1fr)] items-center gap-1 md:grid-cols-[200px_minmax(0,1fr)] md:gap-3">
               <span className="inline-flex items-center gap-2 text-[15px] font-bold text-ink">
-                <Icon className={cx('size-4 shrink-0', b.kind === 'bare' ? 'text-crit' : b.kind === 'critical' ? 'text-warn' : 'text-primary')} aria-hidden />
+                <Icon className="size-4 shrink-0 text-primary" aria-hidden />
                 {b.label}
               </span>
               <div className="relative grid h-8 grid-cols-12 rounded-[6px] bg-tint-2">
@@ -360,7 +262,7 @@ export function LandCalendar({ bands, today }: { bands: CalendarBand[]; today: n
                 {splitWrap(b).map((p, i) => (
                   <div key={i} className={cx('flex items-center rounded-[6px] px-2 text-[12px] font-bold', st.cls)} style={{ gridColumn: `${p.start + 1} / ${p.end + 2}` }}>
                     <span className="sr-only">
-                      {b.label}: {MONTHS_SHORT[b.start]} a {MONTHS_SHORT[b.end]}
+                      {b.label}: {MONTHS_SHORT[b.start]} to {MONTHS_SHORT[b.end]}
                     </span>
                   </div>
                 ))}
@@ -370,18 +272,18 @@ export function LandCalendar({ bands, today }: { bands: CalendarBand[]; today: n
         })}
       </ul>
       <p className="mt-3 flex items-center gap-2 text-[14px] text-muted">
-        <span className="inline-block h-4 w-0.5 bg-ink/70" aria-hidden /> Hoje ({MONTHS_SHORT[today]})
+        <span className="inline-block h-4 w-0.5 bg-ink/70" aria-hidden /> Today ({MONTHS_SHORT[today]})
       </p>
     </div>
   )
 }
 
-/** Notas de 1 a 5 em ícones. */
+/** Scores from 1 to 5 as icons. */
 export function ScoreDots({ value, icon: Icon, label }: { value: number; icon: LucideIcon; label: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-[15px] text-ink">{label}</span>
-      <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${label}: nota ${value} de 5`}>
+      <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${label}: score ${value} out of 5`}>
         {[1, 2, 3, 4, 5].map((n) => (
           <Icon key={n} className={cx('size-[18px]', n <= value ? 'text-primary' : 'text-line')} fill={n <= value ? 'currentColor' : 'none'} strokeWidth={n <= value ? 1.5 : 2} aria-hidden />
         ))}

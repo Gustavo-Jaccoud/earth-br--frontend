@@ -17,7 +17,9 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
-import { DATA_SOURCES, GLOSSARY, type GlossaryKey, type Indicator, type RiskLevel, type SourceId } from '@/data/mock'
+import { DATA_SOURCES, GLOSSARY, type GlossaryKey, type RiskLevel, type SourceId } from '@/data/mock'
+import logoGreen from '@/assets/logo.png'
+import logoWhite from '@/assets/logo-white.png'
 import { Link, navigate } from '@/lib/router'
 import { useStore } from '@/lib/store'
 
@@ -25,7 +27,7 @@ export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ')
 }
 
-/* ------------------------------ Botões ------------------------------ */
+/* ------------------------------ Buttons ------------------------------ */
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'inverse'
 type Size = 'md' | 'lg' | 'sm'
@@ -82,15 +84,19 @@ export function Card({ className, children, as: As = 'section' }: { className?: 
 }
 
 export function Logo({ inverse, size = 'md' }: { inverse?: boolean; size?: 'md' | 'lg' }) {
+  const img = size === 'lg' ? 'size-9' : 'size-8'
   return (
-    <span className={cx('inline-flex items-center gap-2 font-display font-extrabold tracking-tight', size === 'lg' ? 'text-3xl' : 'text-2xl')}>
-      <svg viewBox="0 0 32 32" aria-hidden className={size === 'lg' ? 'size-9' : 'size-8'}>
-        <circle cx="16" cy="16" r="15" fill={inverse ? '#FFFFFF' : 'var(--c-primary)'} />
-        <path d="M5 19c4-3 7-3 11 0s7 3 11 0" stroke={inverse ? '#0F3D2A' : 'var(--c-on-primary)'} strokeWidth="2.4" fill="none" strokeLinecap="round" />
-        <path d="M16 6v9M11.5 10.5h9" stroke={inverse ? '#0F3D2A' : 'var(--c-on-primary)'} strokeWidth="2.6" strokeLinecap="round" />
-      </svg>
+    <span className={cx('inline-flex items-center gap-2 font-display font-extrabold tracking-tight whitespace-nowrap', size === 'lg' ? 'text-3xl' : 'text-2xl')}>
+      {inverse ? (
+        <img src={logoWhite} alt="" className={cx(img, 'object-contain')} />
+      ) : (
+        <>
+          <img src={logoGreen} alt="" className={cx(img, 'object-contain dark:hidden')} />
+          <img src={logoWhite} alt="" className={cx(img, 'hidden object-contain dark:block')} />
+        </>
+      )}
       <span className={inverse ? 'text-white' : 'text-heading'}>
-        Terra<span className={inverse ? 'text-[#7FD3A5]' : 'text-primary'}>+</span>
+        earth <span className={inverse ? 'text-[#7FD3A5]' : 'text-primary'}>+</span> BR
       </span>
     </span>
   )
@@ -158,19 +164,19 @@ function PopoverPanel({
   )
 }
 
-/* ---------------------- Tooltip "?" (glossário) ---------------------- */
+/* ---------------------- "?" tooltip (glossary) ---------------------- */
 
 export function InfoTip({ term, text, label }: { term?: GlossaryKey; text?: string; label?: string }) {
   const id = useId()
   const p = usePopover()
   const entry = term ? GLOSSARY[term] : undefined
-  const title = label ?? entry?.term ?? 'Explicação'
+  const title = label ?? entry?.term ?? 'Explanation'
   return (
     <span className="relative inline-flex align-middle">
       <button
         ref={p.triggerRef}
         type="button"
-        aria-label={`O que é ${title}?`}
+        aria-label={`What is ${title}?`}
         aria-expanded={p.open}
         aria-describedby={p.open ? id : undefined}
         onClick={() => p.setOpen((o) => !o)}
@@ -189,7 +195,7 @@ export function InfoTip({ term, text, label }: { term?: GlossaryKey; text?: stri
   )
 }
 
-/* ------------------------- Selo de fonte ------------------------- */
+/* ------------------------- Source badge ------------------------- */
 
 export function SourceBadge({ ids, showDate = true, className }: { ids: SourceId[]; showDate?: boolean; className?: string }) {
   const id = useId()
@@ -197,7 +203,7 @@ export function SourceBadge({ ids, showDate = true, className }: { ids: SourceId
   if (ids.length === 0) {
     return (
       <span className={cx('inline-flex items-center gap-1.5 rounded-full bg-tint-2 px-2.5 py-1 text-[13px] text-muted', className)}>
-        <ClipboardPen className="size-3.5" aria-hidden /> Fonte: suas respostas
+        <ClipboardPen className="size-3.5" aria-hidden /> Source: your answers
       </span>
     )
   }
@@ -214,7 +220,7 @@ export function SourceBadge({ ids, showDate = true, className }: { ids: SourceId
       >
         <Satellite className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
         <span>
-          Fonte:{' '}
+          Source:{' '}
           {sources.map((s, i) => (
             <span key={s.id}>
               {i > 0 && ' / '}
@@ -232,7 +238,7 @@ export function SourceBadge({ ids, showDate = true, className }: { ids: SourceId
                 <p className="font-bold text-heading">{s.name}</p>
                 <p className="text-muted">{s.plain}</p>
                 <p className="mt-1 text-[13px] text-muted tabular">
-                  Resolução: {s.resolution} · Atualizado em {s.updatedAt}
+                  Resolution: {s.resolution} · Updated: {s.updatedAt}
                 </p>
               </li>
             ))}
@@ -243,7 +249,7 @@ export function SourceBadge({ ids, showDate = true, className }: { ids: SourceId
   )
 }
 
-/* ------------------------- Estado / risco ------------------------- */
+/* ------------------------- Status / risk ------------------------- */
 
 export type Tone = 'ok' | 'warn' | 'crit' | 'neutral'
 
@@ -269,13 +275,13 @@ export function StatusTag({ tone, children, className }: { tone: Tone; children:
 }
 
 export const RISK_META: Record<RiskLevel, { label: string; tone: Tone; icon: LucideIcon; bar: string }> = {
-  baixo: { label: 'Baixo', tone: 'ok', icon: ShieldCheck, bar: 'bg-ok' },
-  moderado: { label: 'Moderado', tone: 'warn', icon: TriangleAlert, bar: 'bg-warn' },
-  alto: { label: 'Alto', tone: 'crit', icon: CircleAlert, bar: 'bg-crit' },
-  critico: { label: 'Crítico', tone: 'crit', icon: OctagonAlert, bar: 'bg-crit' },
+  baixo: { label: 'Low', tone: 'ok', icon: ShieldCheck, bar: 'bg-ok' },
+  moderado: { label: 'Moderate', tone: 'warn', icon: TriangleAlert, bar: 'bg-warn' },
+  alto: { label: 'High', tone: 'crit', icon: CircleAlert, bar: 'bg-crit' },
+  critico: { label: 'Critical', tone: 'crit', icon: OctagonAlert, bar: 'bg-crit' },
 }
 
-export function RiskBadge({ level, prefix = 'Risco', className }: { level: RiskLevel; prefix?: string; className?: string }) {
+export function RiskBadge({ level, prefix = 'risk', className }: { level: RiskLevel; prefix?: string; className?: string }) {
   const m = RISK_META[level]
   const Icon = m.icon
   return (
@@ -288,16 +294,29 @@ export function RiskBadge({ level, prefix = 'Risco', className }: { level: RiskL
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
-      {prefix ? `${prefix} ${m.label.toLowerCase()}` : m.label}
+      {prefix ? `${m.label} ${prefix.toLowerCase()}` : m.label}
     </span>
   )
 }
 
-/* ------------------------ Card de indicador ------------------------ */
+/* ------------------------ Indicator card ------------------------ */
+
+export type Indicator = {
+  id: string
+  label: string
+  value: string
+  unit: string
+  comparison: string
+  trend: 'up' | 'down' | 'flat'
+  status: 'ok' | 'warn' | 'crit'
+  statusLabel: string
+  sources: SourceId[]
+  help: GlossaryKey
+}
 
 export function IndicatorCard({ ind }: { ind: Indicator }) {
   const Trend = ind.trend === 'up' ? TrendingUp : ind.trend === 'down' ? TrendingDown : Minus
-  const trendText = ind.trend === 'up' ? 'subindo' : ind.trend === 'down' ? 'caindo' : 'estável'
+  const trendText = ind.trend === 'up' ? 'rising' : ind.trend === 'down' ? 'falling' : 'steady'
   return (
     <Card as="article" className="flex flex-col gap-3 p-5">
       <div className="flex items-start justify-between gap-2">
@@ -351,7 +370,7 @@ export function Toaster() {
           )}
           <button
             type="button"
-            aria-label="Fechar aviso"
+            aria-label="Dismiss notice"
             onClick={() => dismissToast(t.id)}
             className="inline-flex size-9 items-center justify-center rounded-full hover:bg-white/10 dark:hover:bg-black/5"
           >
@@ -363,7 +382,7 @@ export function Toaster() {
   )
 }
 
-/* ---------------------- Skeleton / erro / vazio ---------------------- */
+/* ---------------------- Skeleton / error / empty ---------------------- */
 
 export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden className={cx('animate-skeleton rounded-[8px] bg-line', className)} />
@@ -381,39 +400,38 @@ export function IndicatorSkeleton() {
   )
 }
 
-export function ErrorState({ onRetry, className }: { onRetry?: () => void; className?: string }) {
+/** `message` overrides the default text (e.g. an `ApiError` message). */
+export function ErrorState({ onRetry, className, message }: { onRetry?: () => void; className?: string; message?: string | null }) {
   return (
     <div role="alert" className={cx('flex flex-col items-start gap-4 rounded-[12px] border border-crit/30 bg-crit-bg p-6 sm:flex-row sm:items-center', className)}>
       <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-surface text-crit">
         <CloudOff className="size-6" aria-hidden />
       </span>
       <div className="flex-1">
-        <p className="font-bold text-crit-ink">Erro ao buscar dados</p>
-        <p className="text-ink">Não conseguimos buscar os dados de satélite agora. Tente novamente.</p>
+        <p className="font-bold text-crit-ink">Could not load the data</p>
+        <p className="text-ink">{message || 'We could not get the data right now. Please try again.'}</p>
       </div>
       {onRetry && (
         <Button variant="secondary" onClick={onRetry}>
-          <RefreshCw className="size-5" aria-hidden /> Tentar novamente
+          <RefreshCw className="size-5" aria-hidden /> Try again
         </Button>
       )}
     </div>
   )
 }
 
-export function InsufficientData({ className, to }: { className?: string; to?: string }) {
-  const { activeProperty } = useStore()
-  const href = to ?? `/propriedades/nova?passo=2&editar=${activeProperty.id}`
+export function InsufficientData({ className, to = '/propriedades/nova' }: { className?: string; to?: string }) {
   return (
     <div className={cx('flex flex-col items-start gap-4 rounded-[12px] border-2 border-dashed border-warn/60 bg-warn-bg p-6 sm:flex-row sm:items-center', className)}>
       <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-surface text-warn">
         <TriangleAlert className="size-6" aria-hidden />
       </span>
       <div className="flex-1">
-        <p className="font-bold text-warn-ink">Dados insuficientes</p>
-        <p className="text-ink">Precisamos de mais informações sobre seu solo para recomendar com segurança.</p>
+        <p className="font-bold text-warn-ink">Not enough data</p>
+        <p className="text-ink">We need a registered property to show data for your land.</p>
       </div>
-      <ButtonLink to={href} variant="secondary">
-        Completar cadastro
+      <ButtonLink to={to} variant="secondary">
+        Register a property
       </ButtonLink>
     </div>
   )
@@ -424,7 +442,7 @@ export function InsufficientData({ className, to }: { className?: string; to?: s
 export function ImagePlaceholder({ caption, className, compact }: { caption: string; className?: string; compact?: boolean }) {
   return (
     <div role="img" aria-label={caption} className={cx('placeholder-stripes flex items-center justify-center overflow-hidden rounded-[12px] p-4', className)}>
-      <span className={cx('max-w-[90%] text-center font-bold text-placeholder-ink', compact ? 'text-[13px]' : 'text-[15px]')}>[IMAGEM: {caption}]</span>
+      <span className={cx('max-w-[90%] text-center font-bold text-placeholder-ink', compact ? 'text-[13px]' : 'text-[15px]')}>[IMAGE: {caption}]</span>
     </div>
   )
 }
@@ -433,7 +451,7 @@ export function SupportNote({ className, children }: { className?: string; child
   return (
     <p className={cx('flex items-start gap-2 text-[15px] text-muted', className)}>
       <Info className="mt-0.5 size-[18px] shrink-0 text-primary" aria-hidden />
-      <span>{children ?? 'O Terra+ apoia, e não substitui, o seu conhecimento da terra e a orientação da assistência técnica local.'}</span>
+      <span>{children ?? 'earth + BR supports, and does not replace, your own knowledge of the land and the guidance of local technical assistance.'}</span>
     </p>
   )
 }
@@ -441,7 +459,7 @@ export function SupportNote({ className, children }: { className?: string; child
 export function ValidationSeal({ className }: { className?: string }) {
   return (
     <span className={cx('inline-flex items-center gap-1.5 rounded-full border border-dashed border-ink/40 px-2.5 py-1 text-[13px] font-bold text-ink', className)}>
-      <ClipboardPen className="size-4" aria-hidden /> Requer validação técnica local
+      <ClipboardPen className="size-4" aria-hidden /> Needs local technical validation
     </span>
   )
 }
@@ -459,7 +477,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: strin
   )
 }
 
-/** Modal acessível simples. */
+/** Simple accessible modal. */
 export function Dialog({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -494,7 +512,7 @@ export function Dialog({ open, onClose, title, children, wide }: { open: boolean
           <h2 id={titleId} className="text-xl">
             {title}
           </h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-tint">
+          <button type="button" onClick={onClose} aria-label="Close" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-tint">
             <X className="size-5" aria-hidden />
           </button>
         </div>

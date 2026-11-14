@@ -1,4 +1,4 @@
-import { CloudOff, LogOut, Moon, RotateCcw, Trash2, Type } from 'lucide-react'
+import { LogOut, Moon, Type } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { DATA_SOURCES, USER } from '@/data/mock'
 import { Button, Card, PageHeader, SupportNote, cx } from '@/components/ui'
@@ -33,7 +33,7 @@ export default function Settings() {
   const s = useStore()
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Configurações" subtitle="Ajuste o Terra+ do seu jeito." />
+      <PageHeader title="Settings" subtitle="Set up earth + BR the way you like it." />
 
       <Card className="mb-6 flex items-center gap-4 p-5">
         <span className="inline-flex size-14 items-center justify-center rounded-full bg-[#7FD3A5] font-display text-xl font-bold text-[#0F3D2A]">{USER.initials}</span>
@@ -42,49 +42,17 @@ export default function Settings() {
           <p className="text-muted">{USER.role}</p>
         </div>
         <Button variant="ghost" onClick={() => navigate('/')}>
-          <LogOut className="size-5" aria-hidden /> Sair
+          <LogOut className="size-5" aria-hidden /> Sign out
         </Button>
       </Card>
 
-      <h2 className="mb-3 text-[20px]">Aparência e leitura</h2>
+      <h2 className="mb-3 text-[20px]">Appearance and reading</h2>
       <Card className="mb-8 divide-y divide-line">
-        <Toggle id="t-dark" checked={s.theme === 'dark'} onChange={() => s.toggleTheme()} label="Modo escuro" desc="Fundo escuro, bom para usar à noite." icon={<Moon className="size-5" aria-hidden />} />
-        <Toggle id="t-large" checked={s.largeText} onChange={s.setLargeText} label="Texto maior" desc="Aumenta todos os textos e botões em 12%." icon={<Type className="size-5" aria-hidden />} />
+        <Toggle id="t-dark" checked={s.theme === 'dark'} onChange={() => s.toggleTheme()} label="Dark mode" desc="Dark background, good for use at night." icon={<Moon className="size-5" aria-hidden />} />
+        <Toggle id="t-large" checked={s.largeText} onChange={s.setLargeText} label="Larger text" desc="Makes all text and buttons 12% bigger." icon={<Type className="size-5" aria-hidden />} />
       </Card>
 
-      <h2 className="mb-3 text-[20px]">Demonstração do protótipo</h2>
-      <Card className="mb-8 divide-y divide-line">
-        <Toggle
-          id="t-err"
-          checked={s.simulateError}
-          onChange={s.setSimulateError}
-          label="Simular falha nos dados de satélite"
-          desc="Mostra o estado de erro no Dashboard e na Análise da terra."
-          icon={<CloudOff className="size-5" aria-hidden />}
-        />
-        <div className="flex flex-wrap gap-3 p-5">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              s.clearReports()
-              s.pushToast({ message: 'Relatórios apagados', action: { label: 'Ver', to: '/app/relatorios' } })
-            }}
-          >
-            <Trash2 className="size-5" aria-hidden /> Apagar todos os relatórios
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              s.resetDemo()
-              s.pushToast({ message: 'Dados de exemplo restaurados' })
-            }}
-          >
-            <RotateCcw className="size-5" aria-hidden /> Restaurar dados de exemplo
-          </Button>
-        </div>
-      </Card>
-
-      <h2 className="mb-3 text-[20px]">Fontes de dados</h2>
+      <h2 className="mb-3 text-[20px]">Data sources</h2>
       <Card className="mb-8 divide-y divide-line">
         {Object.values(DATA_SOURCES).map((d) => (
           <div key={d.id} className="p-5">
@@ -93,7 +61,7 @@ export default function Settings() {
             </p>
             <p className="text-[15px] text-muted">{d.plain}</p>
             <p className="mt-1 text-[14px] text-muted tabular">
-              Resolução {d.resolution} · Atualizado em {d.updatedAt}
+              Resolution {d.resolution} · Updated: {d.updatedAt}
             </p>
           </div>
         ))}
