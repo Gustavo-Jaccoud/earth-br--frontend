@@ -1,0 +1,183 @@
+/**
+ * earth + BR — typed client for the backend API (FastAPI).
+ * Contract reference: backend repo, docs/api.md and docs/openapi.json.
+ * Base URL: VITE_API_URL (defaults to http://localhost:8000).
+ */
+
+export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8000'
+
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: init?.body ? { 'content-type': 'application/json', ...init.headers } : init?.headers,
+    })
+  } catch {
+    throw new ApiError(0, 'Could not reach the server. Check your connection and try again.')
+  }
+  if (!response.ok) {
+    let detail = `Request failed (${response.status}).`
+    try {
+      const body = await response.json()
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch {
+      /* keep the generic message */
+    }
+    throw new ApiError(response.status, detail)
+  }
+  return response.json() as Promise<T>
+}
+
+const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
+
+/* ------------------------------ types ------------------------------ */
+
+/** [longitude, latitude] — GeoJSON order. */
+export type LonLat = [number, number]
+export type Polygon = { type: 'Polygon'; coordinates: LonLat[][] }
+
+export type Farm = { id: number; name: string; municipality: string; state: string; ibge_code: string | null; owner: string | null }
+export type Plot = {
+  id: number
+  farm_id: number
+  name: string
+  current_crop: string | null
+  geometry: Polygon
+  centroid: LonLat
+  area_ha: number
+  in_demo_region: boolean
+}
+
+export type Crop = {
+  id: string
+  name: string
+  gaez_name: string | null
+  soil_restoring: boolean
+  planting_month: number
+  kc: number[]
+  price_brl_per_kg: number | null
+}
+
+export type SignalColor = 'green' | 'yellow' | 'red'
+export type Signal = {
+  kind: 'rain' | 'soil_moisture'
+  color: SignalColor
+  value: number
+  normal: number
+  deviation_pct: number | null
+  unit: string
+  window_days: number
+  source: string
+  message: string
+}
+export type Signals = { plot_id: number; reference_date: string; reference_date_adjusted: boolean; signals: Signal[] }
+
+export type MonthlyVariable = 'rain' | 'soil_moisture' | 'temperature'
+export type MonthlyValue = { label: string; value: number | null; normal: number | null; complete: boolean }
+export type MonthlyClimate = {
+  plot_id: number
+  source: string
+  reference_date: string
+  normal_period: string
+  variables: { variable: MonthlyVariable; unit: string; months: MonthlyValue[] }[]
+}
+
+export type DailyValue = { date: string; value: number | null }
+export type Climate = { plot_id: number; start: string; end: string; series: { variable: string; unit: string; source: string; values: DailyValue[] }[] }
+
+export type SuitabilityItem = { crop: string; name: string; suitability: number; attainable_yield_kg_ha: number }
+export type Suitability = { plot_id: number; source: string; period: string; items: SuitabilityItem[]; without_data: string[] }
+
+export type DryYears = {
+  plot_id: number
+  source: string
+  /** 1–12, the five wettest consecutive months at this location. */
+  rainy_season_months: number[]
+  years: { year: number; rain_mm: number; rain_anomaly_pct: number }[]
+  message: string
+}
+
+export type CriterionName = 'water' | 'soil' | 'suitability'
+export type CriterionScore = { name: CriterionName; score: number | null; source: string; detail: string }
+export type RotationOption = { crops: string[]; scores: CriterionScore[]; total: number; rank: number }
+export type Rotation = { plot_id: number; options: RotationOption[]; verdict: string }
+
+export type ReportKind = 'analysis' | 'quiz'
+export type ReportSection = { title: string; text: string; data: Record<string, unknown> }
+export type ReportSummary = { id: number; plot_id: number; kind: ReportKind; title: string; created_at: string }
+export type Report = ReportSummary & { sections: ReportSection[] }
+
+export type QuestionType = 'single' | 'multi' | 'rank'
+export type Question = { id: string; text: string; type: QuestionType; options: { id: string; label: string }[] }
+export type QuizAnswers = Record<string, string | string[]>
+
+export type MapLayerId = 'ndvi' | 'soil_moisture' | 'precipitation'
+/** bounds: [[south, west], [north, east]] */
+export type MapLayer = { layer: string; unit: string; legend: { color: string; label: string }[]; periods: { period: string; url: string; bounds: [[number, number], [number, number]] }[] }
+
+/* ---------------------------- endpoints ---------------------------- */
+
+export const api = {
+  listFarms: () => request<Farm[]>('/farms'),
+  createFarm: (body: { name: string; municipality: string; state: string }) => post<Farm>('/farms', body),
+  listPlots: (farmId: number) => request<Plot[]>(`/farms/${farmId}/plots`),
+  createPlot: (farmId: number, body: { name: string; current_crop: string | null; geometry: Polygon }) => post<Plot>(`/farms/${farmId}/plots`, body),
+
+  crops: () => request<Crop[]>('/crops'),
+
+  /** Rain and soil-moisture traffic lights. `referenceDate` (YYYY-MM-DD) defaults to the latest data. */
+  signals: (plotId: number, referenceDate?: string) => request<Signals>(`/plots/${plotId}/signals${referenceDate ? `?reference_date=${referenceDate}` : ''}`),
+  /** Last `months` (1–24) months of rain, soil moisture and temperature vs. the 2001–2020 normal. */
+  monthlyClimate: (plotId: number, months = 12) => request<MonthlyClimate>(`/plots/${plotId}/climate/monthly?months=${months}`),
+  /** Daily NASA POWER series (defaults to the last 90 days). */
+  climate: (plotId: number, start?: string, end?: string) => {
+    const q = new URLSearchParams()
+    if (start) q.set('start', start)
+    if (end) q.set('end', end)
+    return request<Climate>(`/plots/${plotId}/climate${q.size ? `?${q}` : ''}`)
+  },
+  suitability: (plotId: number) => request<Suitability>(`/plots/${plotId}/suitability`),
+  dryYears: (plotId: number) => request<DryYears>(`/plots/${plotId}/dry-years`),
+  /** `options`: 2–4 crop sequences, each with 1–3 crop ids from `crops()`. */
+  compareRotation: (plotId: number, options: string[][]) => post<Rotation>(`/plots/${plotId}/rotation/compare`, { options }),
+
+  quiz: () => request<Question[]>('/quiz'),
+  submitQuiz: (plotId: number, answers: QuizAnswers) => post<Report>(`/plots/${plotId}/quiz`, { answers }),
+
+  createAnalysisReport: (plotId: number, body?: { reference_date?: string; rotation?: { options: string[][] } }) => post<Report>(`/plots/${plotId}/reports/analysis`, body ?? {}),
+  listReports: () => request<ReportSummary[]>('/reports'),
+  getReport: (id: number) => request<Report>(`/reports/${id}`),
+  reportPdfUrl: (id: number) => `${API_URL}/reports/${id}/pdf`,
+
+  /** Satellite map layer. Rejects with status 404 while the satellite pipeline has not been run. */
+  mapLayer: (layer: MapLayerId) => request<MapLayer>(`/maps/${layer}`),
+  staticUrl: (path: string) => `${API_URL}${path}`,
+}
+
+/* ----------------------------- helpers ----------------------------- */
+
+const METERS_PER_DEGREE = 111_320
+
+/** Square polygon with `areaHa` hectares centred on the point (same flat approximation the backend uses). */
+export function squareAround(lat: number, lon: number, areaHa: number): Polygon {
+  const half = Math.sqrt(areaHa * 10_000) / 2
+  const dLat = half / METERS_PER_DEGREE
+  const dLon = half / (METERS_PER_DEGREE * Math.cos((lat * Math.PI) / 180))
+  const ring: LonLat[] = [
+    [lon - dLon, lat - dLat],
+    [lon + dLon, lat - dLat],
+    [lon + dLon, lat + dLat],
+    [lon - dLon, lat + dLat],
+    [lon - dLon, lat - dLat],
+  ]
+  return { type: 'Polygon', coordinates: [ring] }
+}
