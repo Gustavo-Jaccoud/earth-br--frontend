@@ -52,11 +52,11 @@ export default function ChatWidget() {
       {open && (
         <section
           role="dialog"
-          aria-label="earth + BR assistant"
+          aria-label="Earth+br assistant"
           className="fixed inset-x-0 bottom-0 z-[70] flex max-h-[85dvh] flex-col border border-line bg-surface shadow-2xl sm:inset-x-auto sm:bottom-24 sm:right-6 sm:h-[560px] sm:w-[380px] sm:rounded-[16px] lg:bottom-24">
           <header className="flex items-start justify-between gap-2 rounded-t-[16px] bg-primary px-4 py-3 text-on-primary">
             <div>
-              <h2 className="text-[17px] font-bold text-on-primary">earth + BR assistant</h2>
+              <h2 className="text-[17px] font-bold text-on-primary">Earth+br assistant</h2>
               <p className="mt-0.5 text-[13px] leading-snug opacity-90">Demo assistant · pre-written answers built from your property's data. Not an AI.</p>
             </div>
             <div className="-mr-1 flex shrink-0 items-center">

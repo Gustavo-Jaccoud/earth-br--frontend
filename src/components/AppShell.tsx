@@ -202,7 +202,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       {/* Side menu (desktop) */}
       <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-72 flex-col bg-sidebar text-white lg:flex">
         <div className="px-6 pb-4 pt-6">
-          <Link to="/app" aria-label="earth + BR, go to the Dashboard">
+          <Link to="/app" aria-label="Earth+br, go to the Dashboard">
             <Logo inverse />
           </Link>
         </div>
@@ -249,7 +249,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* Top bar (tablet and phone) */}
       <header className="no-print sticky top-0 z-40 flex items-center gap-2 border-b border-white/10 bg-sidebar px-4 py-2 text-white lg:hidden">
-        <Link to="/app" aria-label="earth + BR, go to the Dashboard" className="shrink-0">
+        <Link to="/app" aria-label="Earth+br, go to the Dashboard" className="shrink-0">
           <Logo inverse />
         </Link>
         <div className="ml-1 min-w-0 flex-1 sm:max-w-xs">

@@ -14,24 +14,24 @@ import Settings from '@/pages/Settings'
 import Assistant from '@/pages/Assistant'
 
 const TITLES: [RegExp, string][] = [
-  [/^\/$/, 'earth + BR — Environmental intelligence for adaptive farming'],
-  [/^\/propriedades\/nova/, 'Register property · earth + BR'],
-  [/^\/propriedades/, 'My properties · earth + BR'],
-  [/^\/carregando/, 'Fetching data · earth + BR'],
-  [/^\/app\/partida\/relatorio/, 'Quick start report · earth + BR'],
-  [/^\/app\/partida/, 'Quick start · earth + BR'],
-  [/^\/app\/analise/, 'Land analysis · earth + BR'],
-  [/^\/app\/relatorios/, 'My reports · earth + BR'],
-  [/^\/app\/configuracoes/, 'Settings · earth + BR'],
-  [/^\/app\/assistente/, 'Assistant · earth + BR'],
-  [/^\/app/, 'Dashboard · earth + BR'],
+  [/^\/$/, 'Earth+br — Environmental intelligence for adaptive farming'],
+  [/^\/propriedades\/nova/, 'Register property · Earth+br'],
+  [/^\/propriedades/, 'My properties · Earth+br'],
+  [/^\/carregando/, 'Fetching data · Earth+br'],
+  [/^\/app\/partida\/relatorio/, 'Quick start report · Earth+br'],
+  [/^\/app\/partida/, 'Quick start · Earth+br'],
+  [/^\/app\/analise/, 'Land analysis · Earth+br'],
+  [/^\/app\/relatorios/, 'My reports · Earth+br'],
+  [/^\/app\/configuracoes/, 'Settings · Earth+br'],
+  [/^\/app\/assistente/, 'Assistant · Earth+br'],
+  [/^\/app/, 'Dashboard · Earth+br'],
 ]
 
 function Routes() {
   const { path } = useRoute()
   useScrollTop(path)
   useEffect(() => {
-    document.title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'earth + BR'
+    document.title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Earth+br'
   }, [path])
 
   if (path === '/') return <Landing />

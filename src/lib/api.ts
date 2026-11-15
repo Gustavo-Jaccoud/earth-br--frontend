@@ -1,5 +1,5 @@
 /**
- * earth + BR — typed client for the backend API (FastAPI).
+ * Earth+br — typed client for the backend API (FastAPI).
  * Contract reference: backend repo, docs/api.md and docs/openapi.json.
  * Base URL: VITE_API_URL (defaults to http://localhost:8000).
  */

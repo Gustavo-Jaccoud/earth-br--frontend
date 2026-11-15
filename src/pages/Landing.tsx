@@ -18,7 +18,7 @@ export default function Landing() {
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <Link to="/" aria-label="earth + BR, home page">
+          <Link to="/" aria-label="Earth+br, home page">
             <Logo />
           </Link>
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
@@ -58,7 +58,7 @@ export default function Landing() {
               Plant with more confidence, even when the weather gives you none.
             </h1>
             <p className="mt-6 max-w-2xl text-[19px] leading-relaxed text-white/90 sm:text-[21px]">
-              earth + BR uses NASA and FAO data to help you choose the best crop rotation for your land, saving water and protecting the soil.
+              Earth+br uses NASA and FAO data to help you choose the best crop rotation for your land, saving water and protecting the soil.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <ButtonLink to="/propriedades" variant="inverse" size="lg" className="min-w-52">
@@ -142,7 +142,7 @@ export default function Landing() {
                 <h2 className="text-[30px] !text-white sm:text-[36px]">Open science, explained in plain language.</h2>
               </div>
               <p className="text-[18px] text-white/80">
-                Every number in earth + BR shows where it came from. Hover over (or tap) each source to learn what it measures.
+                Every number in Earth+br shows where it came from. Hover over (or tap) each source to learn what it measures.
               </p>
             </div>
             <ul className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -189,7 +189,7 @@ export default function Landing() {
           </div>
           <div>
             <h2 className="mb-3 font-sans text-[16px] font-bold text-ink">Important notice</h2>
-            <SupportNote>earth + BR is a decision-support tool and does not replace local technical guidance.</SupportNote>
+            <SupportNote>Earth+br is a decision-support tool and does not replace local technical guidance.</SupportNote>
           </div>
         </div>
         <div className="border-t border-line py-5 text-center text-[14px] text-muted">Data: NASA, JAXA and FAO</div>

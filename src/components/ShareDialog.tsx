@@ -13,7 +13,7 @@ export function ShareDialog({ open, onClose, title, reportId }: { open: boolean;
   const [email, setEmail] = useState('')
   const [note, setNote] = useState('')
   const link = reportId === undefined ? null : api.reportPdfUrl(reportId)
-  const body = [note.trim(), `earth + BR report: “${title}”`, link].filter(Boolean).join('\n\n')
+  const body = [note.trim(), `Earth+br report: “${title}”`, link].filter(Boolean).join('\n\n')
   const done = (msg: string) => {
     pushToast({ message: msg })
     onClose()
@@ -24,7 +24,7 @@ export function ShareDialog({ open, onClose, title, reportId }: { open: boolean;
         className="space-y-5 p-6"
         onSubmit={(e) => {
           e.preventDefault()
-          window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`earth + BR report: ${title}`)}&body=${encodeURIComponent(body)}`
+          window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Earth+br report: ${title}`)}&body=${encodeURIComponent(body)}`
           done('Opening your e-mail app…')
         }}
       >

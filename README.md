@@ -1,9 +1,9 @@
-# earth + BR — frontend
+# Earth+br — frontend
 
-React + Vite + Tailwind CSS app for **earth + BR**, a decision-support tool that helps small farmers
+React + Vite + Tailwind CSS app for **Earth+br**, a decision-support tool that helps small farmers
 in Brazil's semi-arid Northeast plan crop rotations with NASA and FAO data.
 
-All data comes from the earth + BR API (backend repository). Nothing is mocked.
+All data comes from the Earth+br API (backend repository). Nothing is mocked.
 
 ## Run locally
 

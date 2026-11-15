@@ -310,7 +310,7 @@ export default function QuickReport() {
             </p>
           </>
         )}
-        <p className="text-[15px] text-muted">Report generated on {formatDate(report.created_at)} by earth + BR.</p>
+        <p className="text-[15px] text-muted">Report generated on {formatDate(report.created_at)} by Earth+br.</p>
         <SupportNote>This report supports your decisions. It does not replace your knowledge of the land or the guidance of local agronomists.</SupportNote>
       </footer>
     </article>

@@ -13,7 +13,7 @@ function SimpleTop({ back }: { back?: { to: string; label: string } }) {
   return (
     <header className="border-b border-line bg-bg">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-        <Link to="/" aria-label="earth + BR, home page">
+        <Link to="/" aria-label="Earth+br, home page">
           <Logo />
         </Link>
         <div className="flex items-center gap-2">
@@ -318,7 +318,7 @@ export function NewPropertyPage() {
           {step === 1 && (
             <>
               <Field label="Property name" htmlFor="nome" error={errors.name}>
-                <input id="nome" className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Sítio Boa Esperança" aria-invalid={!!errors.name} />
+                <input id="nome" className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Green Valley Farm" aria-invalid={!!errors.name} />
               </Field>
               <div className="grid gap-5 sm:grid-cols-[140px_1fr]">
                 <Field label="State" htmlFor="estado">

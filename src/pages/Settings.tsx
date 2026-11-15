@@ -33,7 +33,7 @@ export default function Settings() {
   const s = useStore()
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Settings" subtitle="Set up earth + BR the way you like it." />
+      <PageHeader title="Settings" subtitle="Set up Earth+br the way you like it." />
 
       <Card className="mb-6 flex items-center gap-4 p-5">
         <span className="inline-flex size-14 items-center justify-center rounded-full bg-[#7FD3A5] font-display text-xl font-bold text-[#0F3D2A]">{USER.initials}</span>

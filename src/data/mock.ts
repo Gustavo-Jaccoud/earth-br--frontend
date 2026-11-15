@@ -1,5 +1,5 @@
 /**
- * earth + BR — static presentation content.
+ * Earth+br — static presentation content.
  * Everything measured (rain, soil moisture, temperature, crop suitability, reports)
  * comes from the backend API (see src/lib/api.ts). This file only holds fixed text:
  * data-source descriptions, glossary, landing copy and presentational metadata.
@@ -431,7 +431,7 @@ export const LANDING = {
       icon: 'Satellite',
     },
     { title: 'You tell us about your land', text: 'Where it is, what you grow and what matters most to you.', icon: 'MessageCircle' },
-    { title: 'earth + BR compares scenarios', text: 'Different rotations are scored on water, soil and crop suitability.', icon: 'GitCompare' },
+    { title: 'Earth+br compares scenarios', text: 'Different rotations are scored on water, soil and crop suitability.', icon: 'GitCompare' },
     {
       title: 'You get a simple report',
       text: 'With advantages, risks and what still needs to be checked by a technician.',

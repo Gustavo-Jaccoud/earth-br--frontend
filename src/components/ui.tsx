@@ -96,7 +96,7 @@ export function Logo({ inverse, size = 'md' }: { inverse?: boolean; size?: 'md' 
         </>
       )}
       <span className={inverse ? 'text-white' : 'text-heading'}>
-        earth <span className={inverse ? 'text-[#7FD3A5]' : 'text-primary'}>+</span> BR
+        Earth<span className={inverse ? 'text-[#7FD3A5]' : 'text-primary'}>+</span>br
       </span>
     </span>
   )
@@ -451,7 +451,7 @@ export function SupportNote({ className, children }: { className?: string; child
   return (
     <p className={cx('flex items-start gap-2 text-[15px] text-muted', className)}>
       <Info className="mt-0.5 size-[18px] shrink-0 text-primary" aria-hidden />
-      <span>{children ?? 'earth + BR supports, and does not replace, your own knowledge of the land and the guidance of local technical assistance.'}</span>
+      <span>{children ?? 'Earth+br supports, and does not replace, your own knowledge of the land and the guidance of local technical assistance.'}</span>
     </p>
   )
 }

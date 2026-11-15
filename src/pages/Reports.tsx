@@ -9,7 +9,7 @@ import { formatDate, useStore } from '@/lib/store'
 
 const selectCls = 'min-h-12 rounded-full border-2 border-line bg-surface px-4 text-[16px] text-ink focus:border-primary focus:outline-none'
 
-export const SUPPORT_TEXT = 'earth + BR supports, and does not replace, your knowledge of the land and the guidance of local agronomists.'
+export const SUPPORT_TEXT = 'Earth+br supports, and does not replace, your knowledge of the land and the guidance of local agronomists.'
 
 /* ------------------------------------------------------------------ */
 /* Shared pieces (also used by the quick-start pages)                  */

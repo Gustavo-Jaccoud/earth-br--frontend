@@ -91,7 +91,7 @@ export default function Assistant() {
       {/* Conversation */}
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-line bg-surface" aria-label="Assistant conversation">
         <header className="border-b border-line px-5 py-3">
-          <h1 className="text-[22px]">earth + BR assistant</h1>
+          <h1 className="text-[22px]">Earth+br assistant</h1>
           <p className="text-[14px] text-muted">
             Demo assistant · pre-written answers built from the data of {activeProperty?.name}. Not an AI.
           </p>
