@@ -33,9 +33,10 @@ const BASE_KEY = 'earth-br-basemap'
 
 function savedBase(): BaseLayer {
   try {
-    return localStorage.getItem(BASE_KEY) === 'satellite' ? 'satellite' : 'map'
+    // Satellite is the default; 'map' only when the visitor chose it.
+    return localStorage.getItem(BASE_KEY) === 'map' ? 'map' : 'satellite'
   } catch {
-    return 'map'
+    return 'satellite'
   }
 }
 
@@ -142,7 +143,7 @@ export default function LeafletMap({
   const layers = useRef<{ base?: L.TileLayer; polygon?: L.Polygon; reference?: L.Polygon; pin?: L.Marker; overlay?: L.ImageOverlay; drawing?: L.LayerGroup }>({})
   /** Bounds last framed, and whether the user has since moved the map themselves. */
   const fit = useRef<{ bounds?: L.LatLngBounds; byUser: boolean }>({ byUser: false })
-  const [base, setBase] = useState<BaseLayer>(() => defaultBase ?? (interactive ? savedBase() : 'map'))
+  const [base, setBase] = useState<BaseLayer>(() => defaultBase ?? (interactive ? savedBase() : 'satellite'))
 
   // Latest props for the Leaflet event handlers, which are bound once.
   const live = useRef({ onPick, draw, vertices: vertices ?? [], onVerticesChange, onDrawRejected, base, locked })
