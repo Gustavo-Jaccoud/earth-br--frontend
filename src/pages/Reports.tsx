@@ -1,6 +1,6 @@
-import { ArrowLeft, CloudRain, Download, Droplets, FileText, FolderOpen, LayoutGrid, List, ScanSearch, Search, Sprout, Trophy, Waves, X, Zap, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CloudRain, Download, Droplets, FileText, FolderOpen, Info, LayoutGrid, List, ScanSearch, Search, Sprout, Trophy, Waves, X, Zap, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { DATA_SOURCES, type CropSegment, type SourceId } from '@/data/mock'
+import { DATA_SOURCES, GLOSSARY, type CropSegment, type SourceId } from '@/data/mock'
 import { Button, ButtonLink, Card, ErrorState, ImagePlaceholder, PageHeader, Skeleton, SourceBadge, StatusTag, SupportNote, btn, cx, type Tone } from '@/components/ui'
 import { CropTimeline } from '@/components/viz'
 import { api, ApiError, type Crop, type CriterionName, type Report, type ReportKind, type ReportSection, type ReportSummary, type RotationOption, type Signal, type SuitabilityItem } from '@/lib/api'
@@ -13,6 +13,7 @@ export const SUPPORT_TEXT = 'Earth+br supports, and does not replace, your knowl
 
 /* ------------------------------------------------------------------ */
 /* Shared pieces (also used by the quick-start pages)                  */
+/* The report content itself is `ReportBody`, further down.            */
 /* ------------------------------------------------------------------ */
 
 /** The shared error state with the server's own message, plus optional extra actions below it. */
@@ -129,6 +130,15 @@ const CRITERIA: Record<CriterionName, { label: string; icon: LucideIcon }> = {
 
 export const optionKey = (crops: string[]) => crops.join('>')
 
+/** Colour of a crop in the calendar, from the catalogue: legumes restore the soil, forages feed the herd. */
+function timelineTone(crop: Crop): CropSegment['tone'] {
+  const category = (crop as Crop & { category?: string }).category
+  if (crop.id === 'palma') return 'cactus'
+  if (crop.soil_restoring || category === 'legume') return 'legume'
+  if (category === 'forage') return 'forage'
+  return 'grain'
+}
+
 /** 12-month timeline for a crop sequence: typical planting month of the first crop, then one crop after another. */
 export function timelineFor(sequence: string[], crops: Crop[]): CropSegment[] | null {
   const segments: CropSegment[] = []
@@ -139,7 +149,7 @@ export function timelineFor(sequence: string[], crops: Crop[]): CropSegment[] | 
     const length = Math.min(12, Math.max(1, crop.kc.length))
     const start: number = next ?? (((crop.planting_month - 1) % 12) + 12) % 12
     const end = (start + length - 1) % 12
-    segments.push({ crop: crop.name, start, end, tone: crop.soil_restoring ? 'legume' : crop.id === 'palma' ? 'cactus' : 'grain' })
+    segments.push({ crop: crop.name, start, end, tone: timelineTone(crop) })
     next = (end + 1) % 12
   }
   return segments
@@ -262,38 +272,6 @@ export function RiskMeter({ risk, level }: { risk: number; level: unknown }) {
   )
 }
 
-/** The numbers behind the financial estimate; renders nothing when the backend could not estimate. */
-export function FinancialFacts({ data, crops }: { data: Record<string, unknown>; crops: Crop[] | null }) {
-  const loss = data.estimated_loss_brl_per_year
-  if (typeof loss !== 'number') return null
-  const cropId = typeof data.crop === 'string' ? data.crop : null
-  const facts: [string, string][] = []
-  if (cropId) facts.push(['Crop', crops?.find((c) => c.id === cropId)?.name ?? cropId])
-  if (typeof data.attainable_yield_kg_ha === 'number') facts.push(['Attainable yield', `${num(data.attainable_yield_kg_ha)} kg/ha`])
-  if (typeof data.water_coverage_pct === 'number') facts.push(['Crop water need covered by rain', `${num(data.water_coverage_pct, 1)}%`])
-  return (
-    <div className="grid gap-4 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-8">
-      <div>
-        <p className="text-[15px] text-muted">Estimated loss from water shortage</p>
-        <p className="font-display text-[36px] font-bold leading-tight text-ink tabular">
-          R$ {num(loss)}
-          <span className="text-[18px] font-normal text-muted"> / year</span>
-        </p>
-      </div>
-      {facts.length > 0 && (
-        <dl className="grid gap-2 sm:grid-cols-3">
-          {facts.map(([k, v]) => (
-            <div key={k} className="rounded-[8px] bg-tint-2 px-3 py-2">
-              <dt className="text-[14px] text-muted">{k}</dt>
-              <dd className="font-display text-[18px] font-bold text-ink tabular">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
-  )
-}
-
 function SuitabilityTable({ items, withoutData, crops }: { items: SuitabilityItem[]; withoutData: string[]; crops: Crop[] | null }) {
   return (
     <div>
@@ -376,23 +354,304 @@ export function SectionText({ text, className }: { text: string; className?: str
   return <p className={cx('whitespace-pre-line text-[17px] text-ink', className)}>{text.trim()}</p>
 }
 
-/** Structured data of a report section, for the shapes the backend is known to send. Unknown shapes render nothing. */
+/** Structured data of a section the app does not know by title: renders the shapes it recognises, nothing otherwise. */
 export function SectionData({ data, crops }: { data: Record<string, unknown>; crops: Crop[] | null }) {
   const blocks: ReactNode[] = []
   if (typeof data.risk === 'number') blocks.push(<RiskMeter key="risk" risk={data.risk} level={data.level} />)
   if (Array.isArray(data.signals) && data.signals.length > 0) blocks.push(<SignalCards key="signals" signals={data.signals as Signal[]} />)
-  if (typeof data.estimated_loss_brl_per_year === 'number') blocks.push(<FinancialFacts key="fin" data={data} crops={crops} />)
-  if (Array.isArray(data.options) && data.options.length > 0) blocks.push(<RotationCards key="rotation" options={data.options as RotationOption[]} crops={crops} />)
+  if (Array.isArray(data.options) && data.options.length > 0) {
+    blocks.push(<RotationCards key="rotation" options={data.options as RotationOption[]} crops={crops} current={Array.isArray(data.current) ? (data.current as string[]) : null} />)
+  }
   if (Array.isArray(data.items) && data.items.length > 0) {
     blocks.push(<SuitabilityTable key="suit" items={data.items as SuitabilityItem[]} withoutData={Array.isArray(data.without_data) ? (data.without_data as string[]) : []} crops={crops} />)
   }
   if (Array.isArray(data.years) && data.years.length > 0) blocks.push(<DryYearsGrid key="years" years={data.years as DryYear[]} />)
+  if (Array.isArray(data.suggestions) && data.suggestions.length > 0) blocks.push(<BulletList key="suggestions" items={(data.suggestions as unknown[]).filter((x): x is string => typeof x === 'string')} />)
   if (blocks.length === 0) return null
   return <div className="mt-5 space-y-5">{blocks}</div>
 }
 
 function sectionSource(s: ReportSection) {
   return typeof s.data.source === 'string' ? s.data.source : null
+}
+
+/* ------------------------------------------------------------------ */
+/* Report body: the single rendering path for every report             */
+/* (used right after the Quick start and when a saved report is opened) */
+/* ------------------------------------------------------------------ */
+
+const GLOSSARY_KEYS = ['pousio', 'palhada', 'adubacaoVerde', 'curvaNivel', 'ndvi', 'mediaHistorica']
+
+const titleKey = (s: ReportSection) => s.title.trim().toLowerCase()
+
+/** The backend saves this exact shape when a part of the report could not be computed. */
+function isUnavailable(s: ReportSection) {
+  return Object.keys(s.data).length === 0 && /^data unavailable/i.test(s.text.trim())
+}
+
+function UnavailableNotice() {
+  return (
+    <div className="flex items-start gap-3 rounded-[12px] border border-dashed border-muted/50 bg-tint-2 p-5" data-report-unavailable>
+      <Info className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+      <div>
+        <p className="font-bold text-ink">Data unavailable at the moment.</p>
+        <p className="mt-1 text-[15px] text-muted">This part could not be computed when the report was generated. The rest of the report is not affected; generate a new report later to try again.</p>
+      </div>
+    </div>
+  )
+}
+
+function SectionTitle({ id, n, title, subtitle }: { id: string; n: number; title: string; subtitle?: string }) {
+  return (
+    <div className="mb-5 flex items-start gap-3">
+      <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-tint font-display text-[15px] font-bold text-primary tabular" aria-hidden>
+        {n}
+      </span>
+      <div>
+        <h2 id={id} data-report-heading className="text-[26px] sm:text-[28px]">
+          {title}
+        </h2>
+        {subtitle && <p className="text-muted">{subtitle}</p>}
+      </div>
+    </div>
+  )
+}
+
+function RiskHero({ section, heading: Heading }: { section: ReportSection; heading: 'h1' | 'h2' }) {
+  const value = typeof section.data.risk === 'number' ? section.data.risk : null
+  const level = riskMeta(section.data.level)
+  const fromQuiz = section.data.answers != null
+  return (
+    <section aria-labelledby="overall-risk" className="print-avoid rounded-[20px] bg-[#0F3D2A] p-7 text-white sm:p-10 dark:bg-[#173022]">
+      <Heading id="overall-risk" data-report-heading className="mb-4 font-sans text-[16px] font-bold uppercase tracking-wider !text-[#7FD3A5]">
+        Overall risk
+      </Heading>
+      {value != null && (
+        <>
+          <div className="mb-5 flex flex-wrap items-center gap-4">
+            <p className="font-display text-[56px] font-bold leading-none tabular">
+              {Math.round(value)}
+              <span className="text-[22px] font-normal text-white/70"> / 100</span>
+            </p>
+            <StatusTag tone={level.tone} className="text-[16px]">
+              {level.label}
+            </StatusTag>
+          </div>
+          <div className="mb-6 h-3 max-w-xl overflow-hidden rounded-full bg-white/15" role="img" aria-label={`${level.label}: ${Math.round(value)} out of 100`}>
+            <div className={cx('h-full rounded-full', level.bar)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+          </div>
+        </>
+      )}
+      <p className="max-w-4xl font-display text-[24px] font-semibold leading-snug sm:text-[28px]">{section.text || 'The server did not return a risk assessment for this report.'}</p>
+      {value != null && <p className="mt-5 text-[16px] text-white/80">{fromQuiz ? 'Computed from your answers to the 10 quick-start questions. ' : ''}0 is the lowest risk, 100 the highest.</p>}
+    </section>
+  )
+}
+
+/** Verdict, option cards and the honest notes of a rotation comparison ("Crop recommendations" / "Rotation comparison"). */
+function RotationSection({ section, crops, recommended }: { section: ReportSection; crops: Crop[] | null; recommended: boolean }) {
+  const options = Array.isArray(section.data.options) ? (section.data.options as RotationOption[]) : []
+  const current = Array.isArray(section.data.current) && section.data.current.length > 0 ? (section.data.current as string[]) : null
+  if (options.length === 0) return <SectionText text={section.text} />
+  return (
+    <div className="space-y-5">
+      {section.text.trim() && <p className="rounded-[12px] bg-tint p-5 font-display text-[20px] font-semibold text-heading">{section.text.trim()}</p>}
+      <RotationCards options={options} crops={crops} current={current} />
+      {recommended && (
+        <p className="text-[15px] text-muted">
+          How the alternatives were chosen: the crops best suited to this location (FAO GAEZ suitability), each followed by a soil-restoring legume.
+          {!current && ' This property has no current crop registered, so there is no current practice to compare against.'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function sectionSubtitle(s: ReportSection): string | undefined {
+  switch (titleKey(s)) {
+    case 'environmental impact':
+    case 'current conditions': {
+      const date = typeof s.data.reference_date === 'string' ? s.data.reference_date : null
+      return date ? `Rain and soil moisture at your field, with data up to ${formatDate(date)}.` : 'Rain and soil moisture at your field.'
+    }
+    case 'crop recommendations': {
+      const count = Array.isArray(s.data.options) ? s.data.options.length : 0
+      const hasCurrent = Array.isArray(s.data.current) && s.data.current.length > 0
+      if (count === 0) return 'Crop sequences for this field, scored on water, soil and suitability.'
+      return hasCurrent
+        ? `Your current practice and ${count - 1} ${count - 1 === 1 ? 'alternative' : 'alternatives'}, scored on water, soil and suitability.`
+        : `${count} crop sequences for this field, scored on water, soil and suitability.`
+    }
+    case 'rotation comparison':
+      return 'The crop sequences compared for this field, scored on water, soil and suitability.'
+    case 'suggestions':
+      return 'Practical steps to reduce the damage, based on your answers.'
+    case 'crop suitability':
+      return 'How well each crop fits the local climate and soil, without irrigation.'
+    case 'dry years':
+      return 'How the rainy season of each year compared with normal.'
+    default:
+      return undefined
+  }
+}
+
+/** The content of one section, chosen deliberately by its title; unknown titles get the generic fallback. */
+function SectionContent({ section: s, crops }: { section: ReportSection; crops: Crop[] | null }) {
+  if (isUnavailable(s)) return <UnavailableNotice />
+  const source = sectionSource(s)
+  const sourceLabel = source && <SourceLabel source={source} className="mt-4" />
+  switch (titleKey(s)) {
+    case 'risk':
+      return (
+        <>
+          <SectionText text={s.text} />
+          {typeof s.data.risk === 'number' && (
+            <div className="mt-5">
+              <RiskMeter risk={s.data.risk} level={s.data.level} />
+            </div>
+          )}
+        </>
+      )
+    case 'environmental impact':
+    case 'current conditions': {
+      const signals = Array.isArray(s.data.signals) ? (s.data.signals as Signal[]) : []
+      return (
+        <div className="space-y-5">
+          <SectionText text={s.text} />
+          {signals.length > 0 && <SignalCards signals={signals} />}
+        </div>
+      )
+    }
+    case 'crop recommendations':
+      return <RotationSection section={s} crops={crops} recommended />
+    case 'rotation comparison':
+      return <RotationSection section={s} crops={crops} recommended={false} />
+    case 'suggestions': {
+      const list = Array.isArray(s.data.suggestions) ? (s.data.suggestions as unknown[]).filter((x): x is string => typeof x === 'string') : []
+      return list.length > 0 ? <BulletList items={list} /> : <SectionText text={s.text} />
+    }
+    case 'crop suitability': {
+      const items = Array.isArray(s.data.items) ? (s.data.items as SuitabilityItem[]) : []
+      return (
+        <>
+          <SectionText text={s.text} />
+          {items.length > 0 && (
+            <div className="mt-5">
+              <SuitabilityTable items={items} withoutData={Array.isArray(s.data.without_data) ? (s.data.without_data as string[]) : []} crops={crops} />
+            </div>
+          )}
+          {sourceLabel}
+        </>
+      )
+    }
+    case 'dry years': {
+      const years = Array.isArray(s.data.years) ? (s.data.years as DryYear[]) : []
+      return (
+        <>
+          <SectionText text={s.text} />
+          {years.length > 0 && (
+            <div className="mt-5">
+              <DryYearsGrid years={years} />
+            </div>
+          )}
+          {sourceLabel}
+        </>
+      )
+    }
+    default:
+      return (
+        <>
+          <SectionText text={s.text} />
+          <SectionData data={s.data} crops={crops} />
+          {sourceLabel}
+        </>
+      )
+  }
+}
+
+/** Every data source named anywhere in the report's saved sections. */
+function reportSources(report: Report): string[] {
+  const found: string[] = []
+  for (const s of report.sections) {
+    if (Array.isArray(s.data.signals)) found.push(...(s.data.signals as Signal[]).map((x) => x.source))
+    if (Array.isArray(s.data.options)) found.push(...(s.data.options as RotationOption[]).flatMap((o) => o.scores.map((x) => x.source)))
+    const own = sectionSource(s)
+    if (own) found.push(own)
+  }
+  return [...new Set(found.filter((x) => typeof x === 'string' && x))]
+}
+
+/**
+ * The whole content of a report, built only from its saved sections, in the order the server sent them.
+ * Both the page shown right after the Quick start and the saved report under My reports render through
+ * this component, so the two cannot show different things. `crops` (from `api.crops()`) gives crop names
+ * and calendars; without it crop ids are shown.
+ */
+export function ReportBody({ report, crops, riskHeading = 'h2' }: { report: Report; crops: Crop[] | null; riskHeading?: 'h1' | 'h2' }) {
+  const hero = report.sections.find((s) => titleKey(s) === 'risk' && !isUnavailable(s))
+  const rest = report.sections.filter((s) => s !== hero)
+  const sources = reportSources(report)
+  const glossary = GLOSSARY_KEYS.map((k) => (GLOSSARY as Record<string, { term: string; plain: string } | undefined>)[k]).filter((g) => !!g)
+  const fromQuiz = report.kind === 'quiz'
+
+  return (
+    <div className="space-y-10" data-report-body>
+      {hero && <RiskHero section={hero} heading={riskHeading} />}
+
+      {rest.map((s, i) => {
+        const id = `report-section-${i}`
+        // Option cards are laid out side by side on the page itself; everything else sits in one card.
+        const bare = (titleKey(s) === 'crop recommendations' || titleKey(s) === 'rotation comparison') && !isUnavailable(s) && Array.isArray(s.data.options) && s.data.options.length > 0
+        return (
+          <section key={`${s.title}-${i}`} aria-labelledby={id} className={bare ? undefined : 'print-avoid'} data-report-section={s.title}>
+            <SectionTitle id={id} n={i + 1} title={s.title} subtitle={sectionSubtitle(s)} />
+            {bare ? (
+              <SectionContent section={s} crops={crops} />
+            ) : (
+              <Card className="p-6">
+                <SectionContent section={s} crops={crops} />
+              </Card>
+            )}
+          </section>
+        )
+      })}
+
+      {report.sections.length === 0 && (
+        <Card className="p-6">
+          <p className="text-muted">This report has no content.</p>
+        </Card>
+      )}
+
+      {glossary.length > 0 && report.sections.length > 0 && (
+        <section aria-labelledby="report-glossary" className="print-avoid">
+          <SectionTitle id="report-glossary" n={rest.length + 1} title="Quick glossary" subtitle="Farming and satellite terms related to this report, in plain words." />
+          <Card className="p-2">
+            <dl className="grid gap-x-8 sm:grid-cols-2">
+              {glossary.map((g) => (
+                <div key={g.term} className="border-b border-line p-4 last:border-0 sm:[&:nth-last-child(2)]:border-0">
+                  <dt className="font-display text-[17px] font-bold text-heading">{g.term}</dt>
+                  <dd className="mt-1 text-[16px] text-muted">{g.plain}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+        </section>
+      )}
+
+      <footer className="space-y-4 rounded-[12px] border border-line bg-tint-2 p-6">
+        {(sources.length > 0 || fromQuiz) && (
+          <>
+            <h2 data-report-heading className="font-sans text-[16px] font-bold text-ink">
+              Data sources used
+            </h2>
+            <p className="text-[15px] text-muted">{[fromQuiz && 'Your answers to the quick-start questions', ...sources].filter(Boolean).join(' · ')}</p>
+          </>
+        )}
+        <p className="text-[15px] text-muted">Report generated on {formatDate(report.created_at)} by Earth+br.</p>
+        <SupportNote>This report supports your decisions. It does not replace your knowledge of the land or the guidance of local agronomists.</SupportNote>
+      </footer>
+    </div>
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -724,25 +983,7 @@ export function ReportView({ id }: { id: string }) {
         subtitle={[property && `${property.name} · ${property.city} – ${property.state}`, `Generated on ${formatDate(report.created_at)}`].filter(Boolean).join(' · ')}
         actions={<PdfLink id={report.id} />}
       />
-      <div className="space-y-5">
-        {report.sections.map((s, i) => {
-          const source = sectionSource(s)
-          return (
-            <Card key={`${s.title}-${i}`} className="print-avoid p-6">
-              <h2 className="mb-3 text-[24px]">{s.title}</h2>
-              <SectionText text={s.text} />
-              <SectionData data={s.data} crops={crops} />
-              {source && <SourceLabel source={source} className="mt-4" />}
-            </Card>
-          )
-        })}
-        {report.sections.length === 0 && (
-          <Card className="p-6">
-            <p className="text-muted">This report has no content.</p>
-          </Card>
-        )}
-      </div>
-      <SupportNote className="mt-10">{SUPPORT_TEXT}</SupportNote>
+      <ReportBody report={report} crops={crops} />
     </article>
   )
 }
