@@ -1,8 +1,7 @@
-import { ArrowRight, CalendarDays, ChevronDown, CircleCheck, CircleHelp, FileText, Map as MapIcon, OctagonAlert, ScanSearch, TriangleAlert, Zap } from 'lucide-react'
+import { ArrowRight, CalendarDays, ChevronDown, CircleCheck, FileText, Map as MapIcon, OctagonAlert, ScanSearch, TriangleAlert, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { MONTHS_LONG, USER, type CalendarBand } from '@/data/mock'
 import { ButtonLink, Card, ErrorState, IndicatorCard, IndicatorSkeleton, InfoTip, Skeleton, SourceBadge, SupportNote, cx, type Indicator } from '@/components/ui'
-import { Tour, markTourSeen, tourSeen, type TourCloseReason, type TourStep } from '@/components/Tour'
 import { FieldMap, LandCalendar, SeriesChart, monthLabel } from '@/components/viz'
 import { ApiError, api, type Crop, type DryYears, type MonthlyClimate, type MonthlyValue, type MonthlyVariable, type Signal, type SignalColor, type Signals } from '@/lib/api'
 import { Link } from '@/lib/router'
@@ -188,20 +187,6 @@ const ALERT_STYLE: Record<SignalColor, { box: string; icon: typeof TriangleAlert
   green: { box: 'border-ok bg-ok-bg', icon: CircleCheck, iconCls: 'text-ok', text: 'text-ok-ink', divider: 'border-ok/30', prefix: '' },
 }
 
-/* ------------------------------ first-access tour ------------------------------ */
-
-const TOUR_KEY = 'earth-br-tour-v1'
-
-/** Targets are `data-tour` names on this page, except the assistant button, which lives in the app shell. */
-const TOUR_STEPS: TourStep[] = [
-  { target: 'alert', title: 'Start here: the main alert', text: 'The most important thing about your land right now, based on recent rain and soil moisture. Use Details to see each signal.' },
-  { target: 'indicators', title: 'Key indicators', text: 'Recent rain, soil moisture and temperature, each compared with what is normal for this time of year. The ? explains each term.' },
-  { target: 'rain', title: 'Rain month by month', text: 'The last 12 months of rain against the historical average, with a short summary below the chart.' },
-  { target: 'map', title: 'Property map', text: 'The outline of your field. Drag to move it and use the buttons to zoom.' },
-  { target: 'shortcuts', title: 'Where to go next', text: 'Quick start asks a few simple questions (about 4 minutes). Analyze my data opens the maps and charts in detail.' },
-  { target: 'button[aria-label="Open the assistant"]', title: 'Ask the assistant', text: 'Open it at any time to ask about your land. It is a demo with pre-written answers built from your property\u2019s data.' },
-]
-
 type DashboardData = { signals: Signals; climate: MonthlyClimate; dry: DryYears; crops: Crop[] }
 
 export default function Dashboard() {
@@ -214,39 +199,13 @@ export default function Dashboard() {
   })
   const [alertOpen, setAlertOpen] = useState(false)
 
-  // The tour starts by itself once, on the first visit, and only when the real content is on screen.
-  const [tourOpen, setTourOpen] = useState(false)
-  const contentReady = Boolean(activeProperty && req.data)
-  useEffect(() => {
-    if (!contentReady || tourSeen(TOUR_KEY)) return
-    const t = window.setTimeout(() => setTourOpen(true), 600)
-    return () => window.clearTimeout(t)
-  }, [contentReady])
-  const closeTour = (reason: TourCloseReason) => {
-    setTourOpen(false)
-    if (reason === 'empty') return
-    markTourSeen(TOUR_KEY)
-    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-  }
-
   const today = new Date()
   const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const monthName = MONTHS_LONG[today.getMonth()]
 
   const header = (subtitle?: string) => (
     <header className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <p className="text-[16px] text-muted first-letter:uppercase">{dateLabel}</p>
-        {contentReady && (
-          <button
-            type="button"
-            onClick={() => setTourOpen(true)}
-            className="no-print -mx-2 inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[15px] text-muted underline-offset-4 hover:bg-tint hover:text-primary hover:underline"
-          >
-            <CircleHelp className="size-[18px]" aria-hidden /> Show the tour again
-          </button>
-        )}
-      </div>
+      <p className="text-[16px] text-muted first-letter:uppercase">{dateLabel}</p>
       <h1 className="text-[30px] sm:text-[40px]">
         {greeting()}, {USER.firstName}. <span className="text-primary">See how your land is doing today.</span>
       </h1>
@@ -469,8 +428,6 @@ export default function Dashboard() {
       </Card>
 
       <SupportNote />
-
-      <Tour steps={TOUR_STEPS} open={tourOpen && contentReady} onClose={closeTour} label="Dashboard tour" />
     </div>
   )
 }

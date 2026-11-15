@@ -1,24 +1,25 @@
-import { Check, ChevronDown, Files, LayoutDashboard, LogOut, MessagesSquare, Moon, Plus, ScanSearch, Settings, Sun, Zap, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, CircleHelp, Files, LayoutDashboard, LogOut, MessagesSquare, Moon, Plus, ScanSearch, Settings, Sun, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { USER } from '@/data/mock'
 import { Link, navigate, useRoute } from '@/lib/router'
 import { useStore } from '@/lib/store'
 import { ButtonLink, Card, ErrorState, Logo, Skeleton, cx } from './ui'
 import ChatWidget from './ChatWidget'
+import { Tour, markTourSeen, tourSeen, type TourCloseReason, type TourStep } from './Tour'
 
 /** Area in hectares, at most one decimal. */
 export function formatHa(v: number) {
   return v.toLocaleString('en-US', { maximumFractionDigits: 1 })
 }
 
-type NavItem = { to: string; label: string; short: string; icon: LucideIcon; match: (p: string) => boolean }
+type NavItem = { to: string; label: string; short: string; icon: LucideIcon; match: (p: string) => boolean; tour: string }
 
 export const NAV: NavItem[] = [
-  { to: '/app', label: 'Dashboard', short: 'Home', icon: LayoutDashboard, match: (p) => p === '/app' },
-  { to: '/app/partida', label: 'Quick start', short: 'Start', icon: Zap, match: (p) => p.startsWith('/app/partida') },
-  { to: '/app/analise', label: 'Land analysis', short: 'Analysis', icon: ScanSearch, match: (p) => p.startsWith('/app/analise') },
-  { to: '/app/relatorios', label: 'My reports', short: 'Reports', icon: Files, match: (p) => p.startsWith('/app/relatorios') },
-  { to: '/app/assistente', label: 'Assistant', short: 'Chat', icon: MessagesSquare, match: (p) => p.startsWith('/app/assistente') },
+  { to: '/app', label: 'Dashboard', short: 'Home', icon: LayoutDashboard, match: (p) => p === '/app', tour: 'nav-dashboard' },
+  { to: '/app/partida', label: 'Quick start', short: 'Start', icon: Zap, match: (p) => p.startsWith('/app/partida'), tour: 'nav-quick' },
+  { to: '/app/analise', label: 'Land analysis', short: 'Analysis', icon: ScanSearch, match: (p) => p.startsWith('/app/analise'), tour: 'nav-analysis' },
+  { to: '/app/relatorios', label: 'My reports', short: 'Reports', icon: Files, match: (p) => p.startsWith('/app/relatorios'), tour: 'nav-reports' },
+  { to: '/app/assistente', label: 'Assistant', short: 'Chat', icon: MessagesSquare, match: (p) => p.startsWith('/app/assistente'), tour: 'nav-assistant' },
 ]
 
 export function ThemeToggle({ compact, onDark }: { compact?: boolean; onDark?: boolean }) {
@@ -157,9 +158,33 @@ function ProfileMenu({ onDark = true, up = true }: { onDark?: boolean; up?: bool
   )
 }
 
+const TOUR_KEY = 'earth-br-tour-v1'
+
+/** First-access tour: it presents the menu only. Targets are `data-tour` names in this file. */
+const TOUR_STEPS: TourStep[] = [
+  { target: 'nav-property', title: 'Your property', text: 'Everything on screen refers to the active property. Switch here, or register another one.' },
+  { target: 'nav-dashboard', title: 'Dashboard', text: 'The overview of your land: alerts, rain, soil moisture and temperature compared with what is normal.' },
+  { target: 'nav-quick', title: 'Quick start', text: 'Answer ten simple questions and get a report with your risk and crop rotation recommendations.' },
+  { target: 'nav-analysis', title: 'Land analysis', text: 'Month-by-month charts and maps for the variables you choose.' },
+  { target: 'nav-reports', title: 'My reports', text: 'Every report you generate is saved here, with its PDF.' },
+  { target: 'nav-assistant', title: 'Assistant', text: 'Ask about your land in a chat. It is a demo with pre-written answers built from your data.' },
+]
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const { path } = useRoute()
   const { status, error, reload, activeProperty } = useStore()
+  // The tour starts by itself once: on the first visit to the Dashboard, when the app is ready.
+  const [tourOpen, setTourOpen] = useState(false)
+  const tourReady = status === 'ready' && activeProperty !== null
+  useEffect(() => {
+    if (!tourReady || path !== '/app' || tourSeen(TOUR_KEY)) return
+    const t = window.setTimeout(() => setTourOpen(true), 600)
+    return () => window.clearTimeout(t)
+  }, [tourReady, path])
+  const closeTour = (reason: TourCloseReason) => {
+    setTourOpen(false)
+    if (reason !== 'empty') markTourSeen(TOUR_KEY)
+  }
   // Every page except Settings needs a property loaded from the server.
   const needsProperty = path !== '/app/configuracoes'
   let content = children
@@ -206,7 +231,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <Logo inverse />
           </Link>
         </div>
-        <div className="px-4">
+        <div className="px-4" data-tour="nav-property">
           <PropertySwitcher />
         </div>
         <nav aria-label="Main menu" className="mt-6 flex-1 px-4">
@@ -218,6 +243,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <li key={n.to}>
                   <Link
                     to={n.to}
+                    data-tour={n.tour}
                     aria-current={active ? 'page' : undefined}
                     className={cx(
                       'flex min-h-12 items-center gap-3 rounded-full px-4 text-[17px] transition-colors',
@@ -241,6 +267,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <Settings className="size-5" aria-hidden /> Settings
           </Link>
           <ThemeToggle onDark />
+          {tourReady && (
+            <button type="button" onClick={() => setTourOpen(true)} className="flex min-h-12 w-full items-center gap-3 rounded-full px-4 font-bold text-white hover:bg-white/10">
+              <CircleHelp className="size-5" aria-hidden /> Show the tour
+            </button>
+          )}
           <div className="pt-2">
             <ProfileMenu />
           </div>
@@ -252,10 +283,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <Link to="/app" aria-label="Earth+br, go to the Dashboard" className="shrink-0">
           <Logo inverse />
         </Link>
-        <div className="ml-1 min-w-0 flex-1 sm:max-w-xs">
+        <div className="ml-1 min-w-0 flex-1 sm:max-w-xs" data-tour="nav-property">
           <PropertySwitcher compact />
         </div>
         <ThemeToggle compact onDark />
+        {tourReady && (
+          <button type="button" onClick={() => setTourOpen(true)} aria-label="Show the tour" className="hidden size-12 items-center justify-center rounded-full hover:bg-white/10 sm:inline-flex">
+            <CircleHelp className="size-5" aria-hidden />
+          </button>
+        )}
         <Link to="/app/configuracoes" aria-label="Settings" className="hidden size-12 items-center justify-center rounded-full hover:bg-white/10 sm:inline-flex">
           <Settings className="size-5" aria-hidden />
         </Link>
@@ -275,6 +311,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <li key={n.to}>
                 <Link
                   to={n.to}
+                  data-tour={n.tour}
                   aria-current={active ? 'page' : undefined}
                   className={cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[12px]', active ? 'font-bold text-primary' : 'text-muted')}
                 >
@@ -288,6 +325,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           })}
         </ul>
       </nav>
+
+      <Tour steps={TOUR_STEPS} open={tourOpen && tourReady} onClose={closeTour} label="Menu tour" />
 
       {/* The assistant page is the chat itself, so the popup is not shown there. */}
       {!path.startsWith('/app/assistente') && <ChatWidget />}

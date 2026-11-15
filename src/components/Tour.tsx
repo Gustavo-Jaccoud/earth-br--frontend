@@ -30,13 +30,13 @@ export function markTourSeen(key: string) {
 
 function findTarget(target: string): HTMLElement | null {
   const selector = /^[\w-]+$/.test(target) ? `[data-tour="${target}"]` : target
-  let el: HTMLElement | null = null
+  // The first match that is on screen: the menu exists twice (side menu on desktop, bottom bar
+  // on phones) and only one of them is visible at a time.
   try {
-    el = document.querySelector<HTMLElement>(selector)
+    return [...document.querySelectorAll<HTMLElement>(selector)].find((el) => el.getClientRects().length > 0) ?? null
   } catch {
     return null
   }
-  return el && el.getClientRects().length > 0 ? el : null
 }
 
 function isFixed(el: HTMLElement) {
