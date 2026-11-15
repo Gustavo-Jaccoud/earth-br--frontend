@@ -105,7 +105,7 @@ export const GLOSSARY: Record<GlossaryKey, { term: string; plain: string }> = {
   },
   umidadeSolo: {
     term: 'Soil moisture',
-    plain: 'How much water there is in the soil, compared with the most it can hold. The higher the number, the more water is available to the roots.',
+    plain: 'How much water there is in the top metre of soil, as a share of the most it can hold: 0% is completely dry, 100% is saturated. It is not a percentage of the soil volume. The value is estimated by a NASA weather model (NASA POWER, variable GWETROOT) for an area about 50 km wide, not measured in your field.',
   },
   estresseTermico: {
     term: 'Heat stress',

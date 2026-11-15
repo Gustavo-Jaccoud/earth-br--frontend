@@ -16,7 +16,7 @@ export type AnalysisConfig = {
 /** `helps`: what the variable is useful for, shown under its name. */
 const VARIABLES: { id: MonthlyVariable; label: string; helps: string; source: SourceId; unit: string; decimals: number }[] = [
   { id: 'rain', label: 'Rain', helps: 'Shows how much it rained compared with what is usual for each month.', source: 'power', unit: 'mm', decimals: 0 },
-  { id: 'soil_moisture', label: 'Soil moisture (root zone)', helps: 'Shows how much water the roots can reach.', source: 'power', unit: '%', decimals: 0 },
+  { id: 'soil_moisture', label: 'Soil moisture (root zone)', helps: 'Shows how much water the roots can reach, as a share of the most the soil can hold (0% dry, 100% saturated).', source: 'power', unit: '%', decimals: 0 },
   { id: 'temperature', label: 'Air temperature', helps: 'Shows whether each month was warmer or cooler than usual.', source: 'power', unit: '°C', decimals: 1 },
   { id: 'water_balance', label: 'Water balance', helps: 'Identifies water deficit and the need to replenish water.', source: 'power', unit: 'mm', decimals: 0 },
   { id: 'rain_satellite', label: 'Satellite precipitation', helps: 'Helps monitor irregular rainfall and how it is distributed across the territory.', source: 'gpm', unit: 'mm', decimals: 0 },

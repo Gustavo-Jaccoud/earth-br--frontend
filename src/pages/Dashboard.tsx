@@ -125,10 +125,10 @@ function buildIndicators(signals: Signals, climate: MonthlyClimate): Indicator[]
   if (soil) {
     out.push({
       id: 'soil',
-      label: `Soil moisture (last ${soil.window_days} days)`,
+      label: `Root-zone soil moisture (last ${soil.window_days} days)`,
       value: num(soil.value * 100),
-      unit: '%',
-      comparison: `Normal for this time of year: ${num(soil.normal * 100)}%`,
+      unit: '% of saturation',
+      comparison: `Normal for this time of year: ${num(soil.normal * 100)}% of saturation`,
       trend: trendOf(monthsOf(climate, 'soil_moisture')),
       status: TONE[soil.color],
       statusLabel: deviationLabel(soil),
@@ -265,7 +265,7 @@ export default function Dashboard() {
                 {calm ? 'No alerts right now: rain and soil moisture are within the normal range for this time of year.' : worst.message}
               </p>
               <p className="mt-1 text-[14px] text-ink">
-                Data up to {formatDate(data.signals.reference_date)}. Satellite-based data arrives about 2 days behind.
+                Data up to {formatDate(data.signals.reference_date)}. NASA POWER data arrives about 2 days behind.
               </p>
             </div>
             <button
