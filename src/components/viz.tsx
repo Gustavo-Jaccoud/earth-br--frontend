@@ -45,7 +45,7 @@ export function MapLegend({ title, unit, legend = [], className }: { title?: str
 /**
  * Interactive map of the field. Satellite layers are shown only when the backend has them
  * (`/maps/{layer}` answers 404 until the satellite pipeline runs) — otherwise just the outline.
- * `polygon` is the real boundary; `reference` is the server's query square, drawn dashed (with a
+ * `polygon` is the real boundary; `reference` is the server's query area (the rectangle enclosing the boundary), drawn dashed (with a
  * caption) only when it can be told apart from the boundary.
  */
 export function FieldMap({ polygon, reference, label, className, coords }: { polygon: LonLat[]; reference?: LonLat[]; label: string; className?: string; coords?: string }) {
@@ -114,7 +114,7 @@ export function FieldMap({ polygon, reference, label, className, coords }: { pol
           <svg width="28" height="14" viewBox="0 0 28 14" className="mt-1 shrink-0" aria-hidden>
             <rect x="1" y="1" width="26" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" />
           </svg>
-          <span>Dashed square: the reference area used for NASA POWER climate data — same size as your field, centred on it. The solid line is the real boundary.</span>
+          <span>Dashed rectangle: the reference area used for NASA POWER climate data. It is calculated from your field and encloses all of it. The solid line is the real boundary.</span>
         </p>
       )}
       {layer && layerId && current && <MapLegend className="mt-4" title={`${LAYER_TITLE[layerId]} · ${monthLabel(current.period)}`} unit={layer.unit} legend={layer.legend} />}

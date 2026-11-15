@@ -21,7 +21,7 @@ export type Property = {
   lon: number
   /** Real boundary of the field, GeoJSON ring ([lon, lat] pairs) — what maps show. */
   polygon: LonLat[]
-  /** Server-made square with the same area, centred on the boundary: the reference area for NASA POWER queries. Not the field outline. */
+  /** Server-made rectangle that encloses the whole boundary: the reference area for NASA POWER queries. Not the field outline. */
   queryPolygon: LonLat[]
 }
 
