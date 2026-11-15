@@ -354,6 +354,11 @@ function Results({ config, property, data, report, onReport }: { config: Analysi
                 </div>
                 <SourceBadge ids={[meta.source]} />
               </div>
+              {series?.note && (
+                <p role="note" className="mb-3 rounded-[8px] border border-amber-300 bg-amber-50 p-3 text-[15px] text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                  <strong>Read with care:</strong> {series.note}
+                </p>
+              )}
               {months.length > 0 ? <SeriesChart months={months} unit={unit} valueName={property.name} refName={`Historical average (${(series?.normal_period ?? '2001-2020').replace('-', '–')})`} decimals={meta.decimals} /> : <p className="text-muted">No data for this variable in the period.</p>}
               {last && (
                 <p className="mt-3 rounded-[8px] bg-tint-2 p-3 text-[16px] text-ink">

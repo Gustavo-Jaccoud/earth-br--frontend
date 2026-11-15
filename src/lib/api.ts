@@ -107,7 +107,8 @@ export type MonthlyClimate = {
   reference_date: string
   normal_period: string
   /** `normal_period`: years behind each `normal` (e.g. "2001-2020"; satellite series differ). */
-  variables: { variable: MonthlyVariable; unit: string; source: string; normal_period: string; months: MonthlyValue[] }[]
+  /** `note`: a caveat to show next to the series (e.g. satellite rain underestimating the rainy season). */
+  variables: { variable: MonthlyVariable; unit: string; source: string; normal_period: string; note?: string | null; months: MonthlyValue[] }[]
   /** Satellite variables with no data for this field yet. */
   unavailable: MonthlyVariable[]
 }
