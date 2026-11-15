@@ -1,8 +1,11 @@
+import type { CSSProperties } from 'react'
 import { ArrowRight, LogIn, Satellite } from 'lucide-react'
 import { DATA_SOURCES, LANDING, type SourceId } from '@/data/mock'
 import { ButtonLink, Logo, SupportNote } from '@/components/ui'
 import heroDesktop from '@/assets/hero-desktop.jpg'
 import heroMobile from '@/assets/hero-mobile.jpg'
+import parallaxDesktop from '@/assets/parallax-desktop.jpg'
+import parallaxMobile from '@/assets/parallax-mobile.jpg'
 import { ThemeToggle } from '@/components/AppShell'
 import { getIcon } from '@/lib/icons'
 import { Link } from '@/lib/router'
@@ -95,25 +98,34 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="como-funciona" className="scroll-mt-20 py-20 lg:py-24">
+        {/* How it works — photo background with parallax (desktop) and fades into the sections around it */}
+        <section id="como-funciona" className="relative isolate scroll-mt-20 overflow-hidden py-28 text-white lg:py-40">
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-20 bg-[image:var(--bg-mobile)] bg-cover bg-center md:bg-[image:var(--bg-desktop)] md:bg-fixed"
+            style={{ '--bg-mobile': `url(${parallaxMobile})`, '--bg-desktop': `url(${parallaxDesktop})` } as CSSProperties}
+          />
+          {/* Dark veil for legible text, fading from the section above and into the one below. */}
+          <div aria-hidden className="absolute inset-0 -z-10 bg-[#0F3D2A]/70 dark:bg-[#0A1A12]/75" />
+          <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-32 bg-gradient-to-b from-tint to-transparent lg:h-40" />
+          <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-b from-transparent to-[#0F3D2A] lg:h-40 dark:to-[#0A1A12]" />
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <p className="mb-3 font-bold text-primary">How it works</p>
-            <h2 className="max-w-3xl text-[30px] sm:text-[36px]">From space to your field, in four steps.</h2>
+            <p className="mb-3 font-bold text-[#A8E6C1]">How it works</p>
+            <h2 className="max-w-3xl text-[30px] text-white sm:text-[36px]">From space to your field, in four steps.</h2>
             <ol className="relative mt-14 grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-              <div className="absolute left-6 right-6 top-6 hidden h-0.5 bg-line lg:block" aria-hidden />
+              <div className="absolute left-6 right-6 top-6 hidden h-0.5 bg-white/30 lg:block" aria-hidden />
               {LANDING.steps.map((s, i) => {
                 const Icon = getIcon(s.icon)
                 return (
                   <li key={s.title} className="relative">
                     <div className="relative mb-6 flex items-center gap-3">
-                      <span className="inline-flex size-12 items-center justify-center rounded-full bg-primary text-on-primary ring-8 ring-bg">
+                      <span className="inline-flex size-12 items-center justify-center rounded-full bg-white text-primary shadow-lg">
                         <Icon className="size-6" aria-hidden />
                       </span>
-                      <span className="font-display text-[15px] font-bold text-muted">Step {i + 1}</span>
+                      <span className="font-display text-[15px] font-bold text-white/80">Step {i + 1}</span>
                     </div>
-                    <h3 className="text-[20px]">{s.title}</h3>
-                    <p className="mt-2 text-[17px] text-muted">{s.text}</p>
+                    <h3 className="text-[20px] text-white">{s.title}</h3>
+                    <p className="mt-2 text-[17px] text-white/85">{s.text}</p>
                   </li>
                 )
               })}
