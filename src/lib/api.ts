@@ -120,6 +120,10 @@ export type QuestionType = 'single' | 'multi' | 'rank'
 export type Question = { id: string; text: string; type: QuestionType; options: { id: string; label: string }[] }
 export type QuizAnswers = Record<string, string | string[]>
 
+/** Demo assistant answer. `used_data` is false for fixed texts; `topic` is "generic" for unrelated questions. */
+export type ChatAnswer = { topic: string; answer: string; used_data: boolean; sources: string[]; suggestions: string[] }
+export type ChatIntro = { greeting: string; suggestions: string[] }
+
 export type MapLayerId = 'ndvi' | 'soil_moisture' | 'precipitation'
 /** bounds: [[south, west], [north, east]] */
 export type MapLayer = { layer: string; unit: string; legend: { color: string; label: string }[]; periods: { period: string; url: string; bounds: [[number, number], [number, number]] }[] }
@@ -157,6 +161,10 @@ export const api = {
   listReports: () => request<ReportSummary[]>('/reports'),
   getReport: (id: number) => request<Report>(`/reports/${id}`),
   reportPdfUrl: (id: number) => `${API_URL}/reports/${id}/pdf`,
+
+  /** Demo assistant (no AI): pre-written answers filled with the field's real data. `message`: 1–500 chars. */
+  chat: (plotId: number, message: string) => post<ChatAnswer>(`/plots/${plotId}/chat`, { message }),
+  chatIntro: () => request<ChatIntro>('/chat/suggestions'),
 
   /** Satellite map layer. Rejects with status 404 while the satellite pipeline has not been run. */
   mapLayer: (layer: MapLayerId) => request<MapLayer>(`/maps/${layer}`),

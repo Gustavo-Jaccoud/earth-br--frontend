@@ -4,6 +4,7 @@ import { USER } from '@/data/mock'
 import { Link, navigate, useRoute } from '@/lib/router'
 import { useStore } from '@/lib/store'
 import { ButtonLink, Card, ErrorState, Logo, Skeleton, cx } from './ui'
+import ChatWidget from './ChatWidget'
 
 /** Area in hectares, at most one decimal. */
 export function formatHa(v: number) {
@@ -286,6 +287,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           })}
         </ul>
       </nav>
+
+      <ChatWidget />
     </div>
   )
 }
