@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, GripVertical, Lightbulb, Sprout } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { QUICK_QUESTIONS, PROCESSING_STEPS, USER } from '@/data/mock'
-import { Button, ImagePlaceholder, Skeleton, SupportNote, cx } from '@/components/ui'
+import { QUICK_QUESTIONS, PROCESSING_STEPS, USER, type QuickPhoto } from '@/data/mock'
+import { Button, Skeleton, SupportNote, cx } from '@/components/ui'
 import { Orbit, StepList } from './Properties'
 import { NoProperty, RequestError, SUPPORT_TEXT, errorMessage } from './Reports'
 import { api, type Question, type QuizAnswers } from '@/lib/api'
@@ -13,11 +13,11 @@ import { useStore } from '@/lib/store'
 /* Questions: text and options from the API, presentation from mock    */
 /* ------------------------------------------------------------------ */
 
-type ViewOption = { id: string; label: string; icon?: string; image?: string }
+type ViewOption = { id: string; label: string; icon?: string; image?: string; photo?: QuickPhoto }
 type ViewQuestion = { id: string; text: string; type: Question['type']; options: ViewOption[]; why?: string; note?: string }
 
-/** Presentational metadata only (icon, why, note, image), matched to the API questions by id. */
-type QuestionMeta = { id: string; why?: string; note?: string; options?: { id: string; icon?: string; image?: string }[] }
+/** Presentational metadata only (icon, why, note, image, photo), matched to the API questions by id. */
+type QuestionMeta = { id: string; why?: string; note?: string; options?: { id: string; icon?: string; image?: string; photo?: QuickPhoto }[] }
 const META: QuestionMeta[] = QUICK_QUESTIONS
 
 function withMeta(q: Question): ViewQuestion {
@@ -30,7 +30,7 @@ function withMeta(q: Question): ViewQuestion {
     note: meta?.note,
     options: q.options.map((o) => {
       const m = meta?.options?.find((x) => x.id === o.id)
-      return { id: o.id, label: o.label, icon: m?.icon, image: m?.image }
+      return { id: o.id, label: o.label, icon: m?.icon, image: m?.image, photo: m?.photo }
     }),
   }
 }
@@ -314,13 +314,48 @@ function MultiOptions({ q, value, onChange }: { q: ViewQuestion; value: string[]
     onChange(base.includes(id) ? base.filter((v) => v !== id) : [...base, id])
   }
   return (
-    <div role="group" aria-label={q.text} className="grid gap-4 sm:grid-cols-2">
-      {q.options.map((o) => (
-        <OptionCard key={o.id} role="checkbox" selected={value.includes(o.id)} onClick={() => toggle(o.id)} icon={o.icon} label={o.label}>
-          {o.image && <ImagePlaceholder caption={o.image} compact className="aspect-[4/3] rounded-none" />}
-        </OptionCard>
-      ))}
-    </div>
+    <>
+      <div role="group" aria-label={q.text} className="grid gap-4 sm:grid-cols-2">
+        {q.options.map((o) => (
+          <OptionCard key={o.id} role="checkbox" selected={value.includes(o.id)} onClick={() => toggle(o.id)} icon={o.icon} label={o.label}>
+            {o.photo && (
+              <span className="block aspect-[4/3] w-full overflow-hidden bg-line">
+                <img src={o.photo.src} alt={o.image ?? o.photo.title} width={800} height={600} loading="lazy" decoding="async" className="size-full object-cover" />
+              </span>
+            )}
+          </OptionCard>
+        ))}
+      </div>
+      <PhotoCredits options={q.options} />
+    </>
+  )
+}
+
+/** Attribution for the option photographs, folded away so it does not compete with the question. */
+function PhotoCredits({ options }: { options: ViewOption[] }) {
+  const credited = options.filter((o) => o.photo)
+  if (credited.length === 0) return null
+  return (
+    <details className="group/credits mt-4 text-[14px] text-muted">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-full px-3 hover:bg-tint hover:text-ink [&::-webkit-details-marker]:hidden">
+        Photo credits <ChevronDown className="size-4 transition-transform group-open/credits:rotate-180" aria-hidden />
+      </summary>
+      <ul className="mt-1 space-y-1.5 px-3 leading-snug">
+        {credited.map((o) => (
+          <li key={o.id}>
+            <span className="font-bold text-ink">{o.label}:</span>{' '}
+            <a href={o.photo!.source} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
+              {o.photo!.title}
+            </a>
+            , {o.photo!.author} —{' '}
+            <a href={o.photo!.licenceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
+              {o.photo!.licence}
+            </a>
+            . Cropped and resized.
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 

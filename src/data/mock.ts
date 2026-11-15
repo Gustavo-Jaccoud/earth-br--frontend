@@ -5,6 +5,11 @@
  * data-source descriptions, glossary, landing copy and presentational metadata.
  */
 
+import erosionLevada from '@/assets/erosion/levada.jpg'
+import erosionNao from '@/assets/erosion/nao.jpg'
+import erosionRaizes from '@/assets/erosion/raizes.jpg'
+import erosionSulcos from '@/assets/erosion/sulcos.jpg'
+
 /* ------------------------------------------------------------------ */
 /* Data sources                                                        */
 /* ------------------------------------------------------------------ */
@@ -200,7 +205,10 @@ export type RiskLevel = 'baixo' | 'moderado' | 'alto' | 'critico'
  * Question text and option labels shown to the user come from the API (`api.quiz()`);
  * ids and option ids here match the backend.
  */
-export type QuickOption = { id: string; label: string; icon: string; hint?: string; image?: string }
+/** A real photograph for an option. Credits are shown in the UI and listed in CREDITS.md. */
+export type QuickPhoto = { src: string; title: string; author: string; licence: string; licenceUrl: string; source: string }
+/** `image` is the description of what the photo shows (used as its alt text); `photo` is the picture itself. */
+export type QuickOption = { id: string; label: string; icon: string; hint?: string; image?: string; photo?: QuickPhoto }
 export type QuickQuestion = {
   id: string
   title: string
@@ -253,10 +261,59 @@ export const QUICK_QUESTIONS: QuickQuestion[] = [
     note: 'You can choose more than one option.',
     why: 'Satellites cannot see small gullies. What you see on the ground completes what they show.',
     options: [
-      { id: 'sulcos', label: 'Gullies in the ground', icon: 'Waves', image: 'gullies cut by runoff on sloping ground' },
-      { id: 'levada', label: 'Soil washed away by rain', icon: 'CloudRain', image: 'muddy water running through the field' },
-      { id: 'raizes', label: 'Exposed roots', icon: 'TreeDeciduous', image: 'tree roots showing above the ground' },
-      { id: 'nao', label: "I don't notice any", icon: 'CircleCheck', image: 'covered, firm soil with no gullies' },
+      {
+        id: 'sulcos',
+        label: 'Gullies in the ground',
+        icon: 'Waves',
+        image: 'Sloping field of young maize with channels cut into the bare red soil by rainwater',
+        photo: {
+          src: erosionSulcos,
+          title: 'Gully and rill erosion in a maize field',
+          author: 'Lynn Betts, USDA Natural Resources Conservation Service',
+          licence: 'Public domain (U.S. government work)', licenceUrl: 'https://creativecommons.org/publicdomain/mark/1.0/',
+          source: 'https://commons.wikimedia.org/wiki/File:NRCSIA99145_-_Iowa_(2991)(NRCS_Photo_Gallery).jpg',
+        },
+      },
+      {
+        id: 'levada',
+        label: 'Soil washed away by rain',
+        icon: 'CloudRain',
+        image: 'Muddy brown water pouring off the edge of a planted field during rain, carrying soil with it',
+        photo: {
+          src: erosionLevada,
+          title: 'Runoff of soil and fertilizer from a farm field',
+          author: 'Lynn Betts, USDA Natural Resources Conservation Service',
+          licence: 'Public domain (U.S. government work)', licenceUrl: 'https://creativecommons.org/publicdomain/mark/1.0/',
+          source: 'https://commons.wikimedia.org/wiki/File:Runoff_of_soil_%26_fertilizer.jpg',
+        },
+      },
+      {
+        id: 'raizes',
+        label: 'Exposed roots',
+        icon: 'TreeDeciduous',
+        image: 'Tree on a slope with its roots left bare above the red ground where the soil has been carried away',
+        photo: {
+          src: erosionRaizes,
+          title: 'Exposed roots from erosion at Kahikinui, Maui',
+          author: 'Forest and Kim Starr',
+          licence: 'CC BY 3.0 US',
+          licenceUrl: 'https://creativecommons.org/licenses/by/3.0/us/deed.en',
+          source: 'https://commons.wikimedia.org/wiki/File:Starr-180305-0045-Metrosideros_polymorpha-exposed_roots_erosion-Kahikinui-Maui_(41191795982).jpg',
+        },
+      },
+      {
+        id: 'nao',
+        label: "I don't notice any",
+        icon: 'CircleCheck',
+        image: 'Healthy maize growing in soil fully covered by straw from the previous crop, with no gullies',
+        photo: {
+          src: erosionNao,
+          title: 'Corn in residue with healthy soil',
+          author: 'USDA NRCS South Dakota',
+          licence: 'Public domain (U.S. government work)', licenceUrl: 'https://creativecommons.org/publicdomain/mark/1.0/',
+          source: 'https://commons.wikimedia.org/wiki/File:Corn_in_Residue_with_Healthy_Soil_(9314025147).jpg',
+        },
+      },
     ],
   },
   {
