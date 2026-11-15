@@ -1,8 +1,10 @@
 import { MessageSquarePlus, Send, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ASSISTANT_MAX_LENGTH, useAssistant } from '@/lib/assistant'
+import { useSpeechToText } from '@/lib/speech'
 import { Link } from '@/lib/router'
 import { formatDate, useStore } from '@/lib/store'
+import MicButton from '@/components/MicButton'
 import { cx } from '@/components/ui'
 
 /**
@@ -16,6 +18,8 @@ export default function Assistant() {
   const [draft, setDraft] = useState('')
   const list = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
+  // Dictation fills the question field; the person reviews it and sends.
+  const speech = useSpeechToText((text) => setDraft(text.slice(0, ASSISTANT_MAX_LENGTH)))
   const { messages, waiting } = chat
   const currentId = chat.current?.id ?? null
   const mine = chat.conversations
@@ -30,6 +34,7 @@ export default function Assistant() {
   }, [messages.length, waiting, currentId])
 
   async function send(text: string) {
+    speech.stop()
     setDraft('')
     const failed = await chat.send(text)
     if (failed) setDraft(failed)
@@ -131,6 +136,11 @@ export default function Assistant() {
           </div>
         </div>
 
+        {(speech.listening || speech.error) && (
+          <p role="status" className={cx('border-t border-line px-5 py-2 text-[14px]', speech.error ? 'text-red-800 dark:text-red-200' : 'text-muted')}>
+            {speech.error || 'Listening… speak your question, then check the text and send.'}
+          </p>
+        )}
         <form onSubmit={onSubmit} className="border-t border-line p-4">
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <input
@@ -140,8 +150,9 @@ export default function Assistant() {
               maxLength={ASSISTANT_MAX_LENGTH}
               placeholder="Ask about your land…"
               aria-label="Your question"
-              className="min-h-12 flex-1 rounded-full border border-line bg-bg px-5 text-ink placeholder:text-muted focus:border-primary focus:outline-none"
+              className="min-h-12 min-w-0 flex-1 rounded-full border border-line bg-bg px-5 text-ink placeholder:text-muted focus:border-primary focus:outline-none"
             />
+            {speech.supported && <MicButton size="lg" listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={chat.busy} />}
             <button type="submit" disabled={!draft.trim() || chat.busy} aria-label="Send" className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-40">
               <Send className="size-5" aria-hidden />
             </button>

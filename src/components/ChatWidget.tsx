@@ -1,8 +1,10 @@
 import { Maximize2, MessageCircle, MessageSquarePlus, Send, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ASSISTANT_MAX_LENGTH, useAssistant } from '@/lib/assistant'
+import { useSpeechToText } from '@/lib/speech'
 import { Link } from '@/lib/router'
 import { useStore } from '@/lib/store'
+import MicButton from './MicButton'
 import { cx } from './ui'
 
 /**
@@ -18,6 +20,8 @@ export default function ChatWidget() {
   const [draft, setDraft] = useState('')
   const list = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
+  // Dictation fills the question field; the person reviews it and sends.
+  const speech = useSpeechToText((text) => setDraft(text.slice(0, ASSISTANT_MAX_LENGTH)))
 
   useEffect(() => setDraft(''), [plotId, chat.current?.id])
 
@@ -36,6 +40,7 @@ export default function ChatWidget() {
   }, [chat.messages.length, chat.waiting, open])
 
   async function send(text: string) {
+    speech.stop()
     setDraft('')
     const failed = await chat.send(text)
     if (failed) setDraft(failed) // keep the question so it can be sent again
@@ -122,6 +127,11 @@ export default function ChatWidget() {
             )}
           </div>
 
+          {(speech.listening || speech.error) && (
+            <p role="status" className={cx('border-t border-line px-4 py-2 text-[13px]', speech.error ? 'text-red-800 dark:text-red-200' : 'text-muted')}>
+              {speech.error || 'Listening… speak your question, then check the text and send.'}
+            </p>
+          )}
           <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <input
               ref={input}
@@ -131,8 +141,9 @@ export default function ChatWidget() {
               disabled={plotId === null}
               placeholder="Ask about your land…"
               aria-label="Your question"
-              className="min-h-11 flex-1 rounded-full border border-line bg-bg px-4 text-[15px] text-ink placeholder:text-muted focus:border-primary focus:outline-none disabled:opacity-50"
+              className="min-h-11 min-w-0 flex-1 rounded-full border border-line bg-bg px-4 text-[15px] text-ink placeholder:text-muted focus:border-primary focus:outline-none disabled:opacity-50"
             />
+            {speech.supported && <MicButton listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={plotId === null || chat.busy} />}
             <button
               type="submit"
               disabled={!draft.trim() || chat.busy || plotId === null}
