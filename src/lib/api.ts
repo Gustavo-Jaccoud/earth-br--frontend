@@ -65,6 +65,9 @@ export type Plot = {
 export type Crop = {
   id: string
   name: string
+  /** grain | legume | root | oilseed | fibre | vegetable | fruit | forage | other */
+  category: string
+  /** null = the server has no suitability data for this crop. */
   gaez_name: string | null
   soil_restoring: boolean
   planting_month: number

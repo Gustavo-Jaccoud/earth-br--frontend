@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
+import { Lock } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import type { LonLat } from '@/lib/api'
 import { pathCrossesItself } from '@/lib/geo'
@@ -100,8 +101,13 @@ type Props = {
   onDrawRejected?: () => void
   /** Draws the outline being drawn as invalid (e.g. its closing side crosses another one). */
   drawInvalid?: boolean
-  /** Moves the view to this point ([lat, lon]) whenever it changes, without placing a marker. */
+  /** Moves the view to this point ([lat, lon]) whenever a new array is passed, without placing a marker. */
   focus?: [number, number] | null
+  /** Zoom used when moving to `focus`. Default: keep the current zoom, but at least 15. */
+  focusZoom?: number
+  /** Locks the map: dimmed, no pan/zoom/click, with `lockedMessage` shown on top of it. */
+  locked?: boolean
+  lockedMessage?: string
   /** Base layer shown first. Defaults to the one last chosen on this device (interactive maps) or the street map. */
   defaultBase?: BaseLayer
   className?: string
@@ -124,6 +130,9 @@ export default function LeafletMap({
   onDrawRejected,
   drawInvalid = false,
   focus,
+  focusZoom,
+  locked = false,
+  lockedMessage,
   defaultBase,
   className,
   label,
@@ -136,8 +145,8 @@ export default function LeafletMap({
   const [base, setBase] = useState<BaseLayer>(() => defaultBase ?? (interactive ? savedBase() : 'map'))
 
   // Latest props for the Leaflet event handlers, which are bound once.
-  const live = useRef({ onPick, draw, vertices: vertices ?? [], onVerticesChange, onDrawRejected, base })
-  live.current = { onPick, draw, vertices: vertices ?? [], onVerticesChange, onDrawRejected, base }
+  const live = useRef({ onPick, draw, vertices: vertices ?? [], onVerticesChange, onDrawRejected, base, locked })
+  live.current = { onPick, draw, vertices: vertices ?? [], onVerticesChange, onDrawRejected, base, locked }
 
   useEffect(() => {
     if (!el.current) return
@@ -155,6 +164,7 @@ export default function LeafletMap({
     })
     m.on('click', (e) => {
       const now = live.current
+      if (now.locked) return
       if (!now.draw) return now.onPick?.(e.latlng.lat, e.latlng.lng)
       const last = now.vertices[now.vertices.length - 1]
       // A double click/tap lands twice on the same spot: keep one corner.
@@ -239,8 +249,10 @@ export default function LeafletMap({
   const focusLon = focus?.[1]
   useEffect(() => {
     const m = map.current
-    if (m && focusLat !== undefined && focusLon !== undefined) m.setView([focusLat, focusLon], Math.max(m.getZoom(), 15))
-  }, [focusLat, focusLon])
+    if (m && focusLat !== undefined && focusLon !== undefined) m.setView([focusLat, focusLon], focusZoom ?? Math.max(m.getZoom(), 15))
+    // `focus` itself is a dependency so that asking for the same place again moves the map back to it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, focusLat, focusLon])
 
   const overlayKey = overlay ? `${overlay.url}|${overlay.bounds.join(',')}|${overlay.opacity ?? 0.7}` : ''
   useEffect(() => {
@@ -252,13 +264,17 @@ export default function LeafletMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlayKey])
 
-  // While drawing, a double click must not zoom: it would also add a corner.
+  // While drawing, a double click must not zoom: it would also add a corner. A locked map does not move at all.
   useEffect(() => {
     const m = map.current
     if (!m || !interactive) return
-    if (draw) m.doubleClickZoom.disable()
+    for (const handler of [m.dragging, m.touchZoom, m.boxZoom, m.keyboard]) {
+      if (locked) handler.disable()
+      else handler.enable()
+    }
+    if (draw || locked) m.doubleClickZoom.disable()
     else m.doubleClickZoom.enable()
-  }, [draw, interactive])
+  }, [draw, interactive, locked])
 
   // Outline being drawn: numbered, draggable corners joined by a closed shape.
   const corners = draw && vertices ? JSON.stringify(vertices) : ''
@@ -303,8 +319,23 @@ export default function LeafletMap({
 
   return (
     <div className={className} style={{ position: 'relative', minHeight: 120, zIndex: 0 }}>
-      <div ref={el} role="application" aria-label={label} style={{ position: 'absolute', inset: 0, cursor: draw || onPick ? 'crosshair' : undefined }} />
-      {interactive && (
+      <div
+        ref={el}
+        role="application"
+        aria-label={label}
+        inert={locked}
+        style={{ position: 'absolute', inset: 0, cursor: draw || onPick ? 'crosshair' : undefined, opacity: locked ? 0.4 : undefined, filter: locked ? 'grayscale(1)' : undefined }}
+      />
+      {locked && (
+        <div data-map-locked className="absolute inset-0 z-[1100] flex cursor-not-allowed items-center justify-center p-4">
+          {lockedMessage && (
+            <p className="flex max-w-xs items-center gap-2.5 rounded-[12px] border-2 border-line bg-surface px-4 py-3 text-[16px] font-bold text-ink shadow-md">
+              <Lock className="size-5 shrink-0 text-muted" aria-hidden /> {lockedMessage}
+            </p>
+          )}
+        </div>
+      )}
+      {interactive && !locked && (
         <div role="group" aria-label="Map background" className="absolute right-2.5 top-2.5 z-[1000] flex overflow-hidden rounded-full border border-line bg-surface shadow-md">
           {(['map', 'satellite'] as const).map((b) => (
             <button

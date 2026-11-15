@@ -1,7 +1,9 @@
 import { ArrowLeft, ArrowRight, Check, LoaderCircle, LocateFixed, MapPin, Plus, Satellite, Trash2, TriangleAlert, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { CITIES_BY_STATE, PROCESSING_STEPS, STATES } from '@/data/mock'
+import { MUNICIPALITY_CENTER } from '@/data/municipalities'
 import { Button, ButtonLink, Card, ErrorState, Logo, Skeleton, SupportNote, cx } from '@/components/ui'
+import CropPicker from '@/components/CropPicker'
 import LeafletMap from '@/components/LeafletMap'
 import { ThemeToggle, formatHa } from '@/components/AppShell'
 import { ApiError, api, squareAround, type Crop, type LonLat } from '@/lib/api'
@@ -147,18 +149,19 @@ function Field({ label, htmlFor, children, hint, error }: { label: string; htmlF
 }
 
 const inputCls =
-  'min-h-12 w-full rounded-[12px] border-2 border-line bg-surface px-4 text-[17px] text-ink placeholder:text-muted/70 focus:border-primary focus:outline-none aria-[invalid=true]:border-crit'
+  'min-h-12 w-full rounded-[12px] border-2 border-line bg-surface px-4 text-[17px] text-ink placeholder:text-muted/70 focus:border-primary focus:outline-none aria-[invalid=true]:border-crit disabled:cursor-not-allowed disabled:bg-tint-2 disabled:text-muted'
 
-function ChoiceCard({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
+function ChoiceCard({ selected, onClick, disabled = false, children }: { selected: boolean; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onClick}
+      disabled={disabled}
       className={cx(
-        'relative flex min-h-14 w-full items-center gap-3 rounded-[12px] border-2 px-4 py-3 text-left transition-colors',
-        selected ? 'border-primary bg-tint' : 'border-line bg-surface hover:border-primary/50',
+        'relative flex min-h-14 w-full items-center gap-3 rounded-[12px] border-2 px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55',
+        selected ? 'border-primary bg-tint' : 'border-line bg-surface enabled:hover:border-primary/50',
       )}
     >
       <span className={cx('inline-flex size-6 shrink-0 items-center justify-center rounded-full border-2', selected ? 'border-primary bg-primary text-on-primary' : 'border-muted/50')}>
@@ -179,6 +182,19 @@ function geolocationMessage(e: GeolocationPositionError) {
 
 const STEP_TITLES = ['Location', 'Production']
 
+/** Zoom at which a municipality fills most of the map. */
+const MUNICIPALITY_ZOOM = 11
+/** A mark further than this from the centre of the chosen municipality is taken to be somewhere else. */
+const FAR_KM = 60
+const LOCKED_MESSAGE = 'Choose the state and municipality first'
+
+/** Great-circle distance in km between two [lat, lon] points. */
+function distanceKm([lat1, lon1]: [number, number], [lat2, lon2]: [number, number]) {
+  const rad = Math.PI / 180
+  const a = Math.sin(((lat2 - lat1) * rad) / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(a))
+}
+
 export function NewPropertyPage() {
   const { addProperty } = useStore()
   const cropList = useCrops()
@@ -188,13 +204,17 @@ export function NewPropertyPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState<string | null>(null)
-  /** Where the map should move to (the device's location) while drawing; no marker is placed. */
-  const [focus, setFocus] = useState<null | [number, number]>(null)
+  /** Where the map should move to (the chosen municipality, or the device's location while drawing); no marker is placed. */
+  const [focus, setFocus] = useState<null | { at: [number, number]; zoom?: number }>(null)
+  /** The device's location was used, which unlocks the map even before a municipality is chosen. */
+  const [geoUnlocked, setGeoUnlocked] = useState(false)
+  /** Tells the user what happened to the map after the location changed (e.g. a far-away mark was removed). */
+  const [placeNote, setPlaceNote] = useState<string | null>(null)
   /** Explains why the last tap or drag on the map was refused. */
   const [drawNote, setDrawNote] = useState<string | null>(null)
   const [f, setF] = useState({
     name: '',
-    state: 'SE',
+    state: '',
     city: '',
     area: '',
     pin: null as null | [number, number],
@@ -216,6 +236,8 @@ export function NewPropertyPage() {
   // Outline the server will store: a square of the typed area around the marked point.
   const outline = f.mode === 'auto' && f.pin && areaOk ? squareAround(f.pin[0], f.pin[1], area).coordinates[0] : undefined
 
+  /** The map stays locked until the user says where the property is. */
+  const locked = !f.city && !geoUnlocked
   const drawing = f.mode === 'draw'
   const corners = f.vertices.length
   const drawnCrossed = ringCrossesItself(f.vertices)
@@ -224,15 +246,40 @@ export function NewPropertyPage() {
   const setVertices = (vertices: LonLat[]) => {
     setF((s) => ({ ...s, vertices }))
     setDrawNote(null)
+    setPlaceNote(null)
     setErrors((e) => ({ ...e, boundary: '' }))
+  }
+
+  /** Municipality chosen: the map goes there, and marks left far away (from another place) are removed. */
+  const chooseCity = (city: string) => {
+    setErrors((e) => ({ ...e, city: '', pin: '', boundary: '' }))
+    setPlaceNote(null)
+    const centre = city ? MUNICIPALITY_CENTER[`${f.state}:${city}`] : undefined
+    if (!centre) return set('city', city)
+    const km = (p: [number, number]) => distanceKm(p, centre)
+    const pinKm = f.pin ? km(f.pin) : 0
+    const drawnKm = Math.max(0, ...f.vertices.map(([lon, lat]) => km([lat, lon])))
+    const dropPin = pinKm > FAR_KM
+    const dropDrawn = drawnKm > FAR_KM
+    setF((s) => ({ ...s, city, pin: dropPin ? null : s.pin, vertices: dropDrawn ? [] : s.vertices }))
+    if (dropPin || dropDrawn) {
+      const what = dropPin && dropDrawn ? 'The place and the outline you had marked were' : dropDrawn ? 'The outline you had drawn was' : 'The place you had marked was'
+      setPlaceNote(`${what} about ${Math.round(Math.max(dropPin ? pinKm : 0, dropDrawn ? drawnKm : 0))} km from ${city}, so ${dropPin && dropDrawn ? 'they were' : 'it was'} removed. Mark the property again on the map, now centred on ${city}.`)
+      setDrawNote(null)
+    }
+    // Keep the view on a nearby mark that stays; otherwise show the municipality.
+    const kept = drawing ? f.vertices.length > 0 && !dropDrawn : !!f.pin && !dropPin
+    if (!kept) setFocus({ at: [...centre], zoom: MUNICIPALITY_ZOOM })
   }
 
   const validate = () => {
     const e: Record<string, string> = {}
     if (step === 1) {
       if (!f.name.trim()) e.name = 'Give the property a name.'
-      if (!f.city) e.city = 'Choose the municipality.'
-      if (drawing) {
+      if (!f.state) e.state = 'Choose the state.'
+      if (!f.city) e.city = f.state ? 'Choose the municipality.' : 'Choose the state, then the municipality.'
+      if (locked) e[drawing ? 'boundary' : 'pin'] = 'Choose the state and municipality above (or use your location) to unlock the map, then mark the property on it.'
+      else if (drawing) {
         if (corners < 3) e.boundary = 'Tap the map to mark at least 3 corners of the property.'
         else if (!drawnOk) e.boundary = 'The outline crosses itself. Drag a corner, undo the last point or clear and start again.'
       } else {
@@ -240,7 +287,7 @@ export function NewPropertyPage() {
         if (!areaOk) e.area = 'Enter the area in hectares (e.g. 12).'
       }
     }
-    if (step === 2 && f.crop === null) e.crop = 'Choose the current crop, or “None”.'
+    if (step === 2 && f.crop === null) e.crop = 'Choose the current crop, or “None” if nothing is planted.'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -272,10 +319,14 @@ export function NewPropertyPage() {
       (pos) => {
         setLocating(false)
         const here: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+        setGeoUnlocked(true)
         // Automatic area: the location becomes the marked place. Drawing: the map just moves there.
-        if (drawing) setFocus([...here])
+        if (drawing) setFocus({ at: here })
         else setF((s) => ({ ...s, pin: here }))
-        setErrors((e) => ({ ...e, pin: '' }))
+        setErrors((e) => ({ ...e, pin: '', boundary: '' }))
+        const centre = f.city ? MUNICIPALITY_CENTER[`${f.state}:${f.city}`] : undefined
+        const km = centre ? distanceKm(here, centre) : 0
+        setPlaceNote(km > FAR_KM ? `Your location is about ${Math.round(km)} km from ${f.city}. Check that the municipality above is the right one.` : null)
       },
       (err) => {
         setLocating(false)
@@ -321,16 +372,27 @@ export function NewPropertyPage() {
                 <input id="nome" className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Green Valley Farm" aria-invalid={!!errors.name} />
               </Field>
               <div className="grid gap-5 sm:grid-cols-[140px_1fr]">
-                <Field label="State" htmlFor="estado">
-                  <select id="estado" className={inputCls} value={f.state} onChange={(e) => setF((s) => ({ ...s, state: e.target.value, city: '' }))}>
+                <Field label="State" htmlFor="estado" error={errors.state}>
+                  <select
+                    id="estado"
+                    className={inputCls}
+                    value={f.state}
+                    onChange={(e) => {
+                      setF((s) => ({ ...s, state: e.target.value, city: '' }))
+                      setErrors((er) => ({ ...er, state: '' }))
+                      setPlaceNote(null)
+                    }}
+                    aria-invalid={!!errors.state}
+                  >
+                    <option value="">Choose</option>
                     {STATES.map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>
                 </Field>
                 <Field label="Municipality" htmlFor="municipio" error={errors.city}>
-                  <select id="municipio" className={inputCls} value={f.city} onChange={(e) => set('city', e.target.value)} aria-invalid={!!errors.city}>
-                    <option value="">Choose the municipality</option>
+                  <select id="municipio" className={inputCls} value={f.city} onChange={(e) => chooseCity(e.target.value)} aria-invalid={!!errors.city} disabled={!f.state}>
+                    <option value="">{f.state ? 'Choose the municipality' : 'Choose the state first'}</option>
                     {(CITIES_BY_STATE[f.state] ?? []).map((c) => (
                       <option key={c}>{c}</option>
                     ))}
@@ -341,12 +403,12 @@ export function NewPropertyPage() {
                 <p id="modo-area" className="mb-1.5 font-bold text-ink">
                   How do you want to mark the area?
                 </p>
-                <div role="radiogroup" aria-labelledby="modo-area" className="grid gap-3 sm:grid-cols-2">
-                  <ChoiceCard selected={!drawing} onClick={() => set('mode', 'auto')}>
+                <div role="radiogroup" aria-labelledby="modo-area" aria-disabled={locked} className="grid gap-3 sm:grid-cols-2">
+                  <ChoiceCard selected={!drawing} onClick={() => set('mode', 'auto')} disabled={locked}>
                     <span className="font-bold">Automatic area</span>
                     <span className="block text-[15px] text-muted">Mark one point and type the size. We draw a square around it.</span>
                   </ChoiceCard>
-                  <ChoiceCard selected={drawing} onClick={() => set('mode', 'draw')}>
+                  <ChoiceCard selected={drawing} onClick={() => set('mode', 'draw')} disabled={locked}>
                     <span className="font-bold">Draw the boundary</span>
                     <span className="block text-[15px] text-muted">Tap the corners of your land on the map, one by one.</span>
                   </ChoiceCard>
@@ -355,7 +417,9 @@ export function NewPropertyPage() {
               <Field
                 label={drawing ? 'Draw the boundary of the property' : 'Where is the property?'}
                 hint={
-                  drawing
+                  locked
+                    ? 'The map opens on your municipality as soon as you choose the state and municipality above. You can also use your phone’s location instead.'
+                    : drawing
                     ? 'Zoom in on your land, then tap each corner in order, going around the property. Drag a numbered corner to adjust it. “Satellite” shows the land as seen from space.'
                     : 'Tap the map to mark the place, or use your phone’s location. Zoom in to be more precise.'
                 }
@@ -369,6 +433,7 @@ export function NewPropertyPage() {
                     onPick={(lat, lon) => {
                       set('pin', [lat, lon])
                       setLocateError(null)
+                      setPlaceNote(null)
                       setErrors((e) => ({ ...e, pin: '' }))
                     }}
                     draw={drawing}
@@ -376,7 +441,10 @@ export function NewPropertyPage() {
                     onVerticesChange={setVertices}
                     onDrawRejected={() => setDrawNote('That point would make the outline cross itself, so it was not added. Mark the corners in order, going around the property.')}
                     drawInvalid={drawnCrossed}
-                    focus={focus}
+                    focus={focus?.at ?? null}
+                    focusZoom={focus?.zoom}
+                    locked={locked}
+                    lockedMessage={LOCKED_MESSAGE}
                     label={drawing ? 'Map to draw the boundary of the property' : 'Map to mark where the property is'}
                   />
                   <div className="flex flex-wrap items-center gap-3 border-t border-line bg-surface p-3">
@@ -385,16 +453,18 @@ export function NewPropertyPage() {
                     </Button>
                     {drawing && (
                       <>
-                        <Button variant="secondary" size="sm" onClick={() => setVertices(f.vertices.slice(0, -1))} disabled={corners === 0}>
+                        <Button variant="secondary" size="sm" onClick={() => setVertices(f.vertices.slice(0, -1))} disabled={locked || corners === 0}>
                           <Undo2 className="size-[18px]" aria-hidden /> Undo last point
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setVertices([])} disabled={corners === 0}>
+                        <Button variant="ghost" size="sm" onClick={() => setVertices([])} disabled={locked || corners === 0}>
                           <Trash2 className="size-[18px]" aria-hidden /> Clear
                         </Button>
                       </>
                     )}
                     <span className="text-[15px] text-muted" aria-live="polite">
-                      {drawing ? (
+                      {locked ? (
+                        'Map locked · choose the state and municipality first'
+                      ) : drawing ? (
                         drawnCrossed ? (
                           <span className="inline-flex items-center gap-1.5 font-bold text-crit-ink">
                             <TriangleAlert className="size-4 shrink-0" aria-hidden /> {corners} corners · the outline crosses itself
@@ -422,6 +492,16 @@ export function NewPropertyPage() {
                       {drawNote ?? 'The line that closes the outline (from the last corner back to corner 1) crosses another side. Add the next corner, drag one, or undo the last point.'}
                     </p>
                   )}
+                  {placeNote && (
+                    <p role="status" className="border-t border-line bg-warn-bg px-4 py-3 text-[15px] text-warn-ink">
+                      {placeNote}
+                    </p>
+                  )}
+                  {!locked && !f.city && (
+                    <p className="border-t border-line bg-tint-2 px-4 py-3 text-[15px] text-ink">
+                      The map is open at your location. Still choose the {f.state ? 'municipality' : 'state and municipality'} above, so the property is recorded in the right place.
+                    </p>
+                  )}
                   {locateError && (
                     <p role="alert" className="border-t border-line bg-warn-bg px-4 py-3 text-[15px] text-warn-ink">
                       {locateError}
@@ -446,7 +526,7 @@ export function NewPropertyPage() {
                   hint="If you are not sure, an approximate value already helps. The field is drawn on the map as a square of this size around the place you marked."
                 >
                   <div className="relative max-w-56">
-                    <input id="area" inputMode="decimal" className={cx(inputCls, 'pr-14 tabular')} value={f.area} onChange={(e) => set('area', e.target.value)} placeholder="12" aria-invalid={!!errors.area} />
+                    <input id="area" inputMode="decimal" className={cx(inputCls, 'pr-14 tabular')} value={f.area} onChange={(e) => set('area', e.target.value)} placeholder="12" aria-invalid={!!errors.area} disabled={locked} />
                     <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted">ha</span>
                   </div>
                 </Field>
@@ -455,7 +535,7 @@ export function NewPropertyPage() {
           )}
 
           {step === 2 && (
-            <Field label="What are you growing now?" hint="Choose the main crop on this land today." error={errors.crop}>
+            <Field label="What are you growing now?" htmlFor="cultura" hint="Choose the main crop on this land today — one crop per property. Search by name, or browse the list." error={errors.crop}>
               {cropList.error ? (
                 <ErrorState message={cropList.error} onRetry={cropList.reload} />
               ) : !cropList.crops ? (
@@ -465,17 +545,16 @@ export function NewPropertyPage() {
                   ))}
                 </div>
               ) : (
-                <div role="radiogroup" aria-label="Current crop" className="grid gap-3 sm:grid-cols-2">
-                  {cropList.crops.map((c) => (
-                    <ChoiceCard key={c.id} selected={f.crop === c.id} onClick={() => set('crop', c.id)}>
-                      <span className="font-bold">{c.name}</span>
-                    </ChoiceCard>
-                  ))}
-                  <ChoiceCard selected={f.crop === ''} onClick={() => set('crop', '')}>
-                    <span className="font-bold">None</span>
-                    <span className="block text-[15px] text-muted">Nothing planted, or another crop</span>
-                  </ChoiceCard>
-                </div>
+                <CropPicker
+                  id="cultura"
+                  crops={cropList.crops}
+                  value={f.crop}
+                  onChange={(crop) => {
+                    set('crop', crop)
+                    setErrors((e) => ({ ...e, crop: '' }))
+                  }}
+                  invalid={!!errors.crop}
+                />
               )}
             </Field>
           )}
