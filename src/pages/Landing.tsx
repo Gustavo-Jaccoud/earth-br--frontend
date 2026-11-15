@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
-import { ArrowRight, LogIn, Satellite } from 'lucide-react'
+import { ArrowRight, ArrowUp, LogIn, Satellite } from 'lucide-react'
 import { DATA_SOURCES, LANDING, type SourceId } from '@/data/mock'
-import { ButtonLink, Logo, SupportNote } from '@/components/ui'
+import { Button, ButtonLink, Logo, SupportNote } from '@/components/ui'
 import heroDesktop from '@/assets/hero-desktop.jpg'
 import heroMobile from '@/assets/hero-mobile.jpg'
 import parallaxDesktop from '@/assets/parallax-desktop.jpg'
@@ -12,13 +12,19 @@ import { Link } from '@/lib/router'
 
 const SOURCE_ORDER: SourceId[] = ['power', 'smap', 'gpm', 'modis', 'gaez']
 
+/** Scrolls to the top and hands keyboard focus to the first control of the page. */
+function backToTop() {
+  window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  document.getElementById('topo')?.focus({ preventScroll: true })
+}
+
 export default function Landing() {
   return (
     <div className="bg-bg">
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <Link to="/" aria-label="Earth+br, home page">
+          <Link to="/" id="topo" aria-label="Earth+br, home page">
             <Logo />
           </Link>
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
@@ -192,7 +198,14 @@ export default function Landing() {
             <SupportNote>Earth+br is a decision-support tool and does not replace local technical guidance.</SupportNote>
           </div>
         </div>
-        <div className="border-t border-line py-5 text-center text-[14px] text-muted">Data: NASA, JAXA and FAO</div>
+        <div className="border-t border-line">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-5 sm:flex-row sm:px-8">
+            <p className="text-[14px] text-muted">Data: NASA, JAXA and FAO</p>
+            <Button variant="secondary" size="sm" onClick={backToTop}>
+              <ArrowUp className="size-[18px]" aria-hidden /> Back to top
+            </Button>
+          </div>
+        </div>
       </footer>
     </div>
   )
