@@ -143,7 +143,7 @@ export default function ChatWidget() {
               aria-label="Your question"
               className="min-h-11 min-w-0 flex-1 rounded-full border border-line bg-bg px-4 text-[15px] text-ink placeholder:text-muted focus:border-primary focus:outline-none disabled:opacity-50"
             />
-            {speech.supported && <MicButton listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={plotId === null || chat.busy} />}
+            <MicButton listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={plotId === null || chat.busy} />
             <button
               type="submit"
               disabled={!draft.trim() || chat.busy || plotId === null}

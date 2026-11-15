@@ -152,7 +152,7 @@ export default function Assistant() {
               aria-label="Your question"
               className="min-h-12 min-w-0 flex-1 rounded-full border border-line bg-bg px-5 text-ink placeholder:text-muted focus:border-primary focus:outline-none"
             />
-            {speech.supported && <MicButton size="lg" listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={chat.busy} />}
+            <MicButton size="lg" listening={speech.listening} onStart={speech.start} onStop={speech.stop} disabled={chat.busy} />
             <button type="submit" disabled={!draft.trim() || chat.busy} aria-label="Send" className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-40">
               <Send className="size-5" aria-hidden />
             </button>

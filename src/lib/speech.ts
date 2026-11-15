@@ -1,7 +1,8 @@
 /**
  * Voice to text for the assistant, using the browser's own speech recognition (Web Speech API).
  * Nothing is sent to the Earth+br backend: the browser transcribes and we only receive text.
- * Supported by Chrome, Edge and Safari; not by Firefox (the microphone button is hidden there).
+ * Supported by Chrome, Edge and Safari; not by Firefox, where the microphone button stays
+ * visible and explains that the browser cannot do it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -30,6 +31,8 @@ export function speechSupported() {
   return typeof window !== 'undefined' && recognitionCtor() !== null
 }
 
+const UNSUPPORTED = 'This browser cannot turn voice into text. Open Earth+br in Chrome or Edge to dictate, or type your question.'
+
 const ERRORS: Record<string, string> = {
   'not-allowed': 'Microphone access was blocked. Allow it in your browser to dictate a question.',
   'service-not-allowed': 'Microphone access was blocked. Allow it in your browser to dictate a question.',
@@ -53,7 +56,11 @@ export function useSpeechToText(onText: (text: string, final: boolean) => void) 
 
   const start = useCallback(() => {
     const Ctor = recognitionCtor()
-    if (!Ctor || recognition.current) return
+    if (!Ctor) {
+      setError(UNSUPPORTED)
+      return
+    }
+    if (recognition.current) return
     const r = new Ctor()
     // The person's own language: Portuguese speakers can dictate in Portuguese (the assistant
     // understands questions in English and Portuguese).

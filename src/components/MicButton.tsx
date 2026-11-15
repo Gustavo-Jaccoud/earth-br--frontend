@@ -1,7 +1,8 @@
 import { Mic, Square } from 'lucide-react'
 import { cx } from './ui'
 
-/** Microphone toggle for dictating a question. Render it only when speech recognition is supported. */
+/** Microphone toggle for dictating a question. Always shown: where the browser has no speech
+ *  recognition, pressing it explains that instead of doing nothing. */
 export default function MicButton({ listening, onStart, onStop, disabled, size = 'md' }: { listening: boolean; onStart: () => void; onStop: () => void; disabled?: boolean; size?: 'md' | 'lg' }) {
   return (
     <button
