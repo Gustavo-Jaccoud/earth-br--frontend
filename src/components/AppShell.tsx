@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Files, LayoutDashboard, LogOut, Moon, Plus, ScanSearch, Settings, Sun, Zap, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, Files, LayoutDashboard, LogOut, MessagesSquare, Moon, Plus, ScanSearch, Settings, Sun, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { USER } from '@/data/mock'
 import { Link, navigate, useRoute } from '@/lib/router'
@@ -15,9 +15,10 @@ type NavItem = { to: string; label: string; short: string; icon: LucideIcon; mat
 
 export const NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', short: 'Home', icon: LayoutDashboard, match: (p) => p === '/app' },
-  { to: '/app/partida', label: 'Quick start', short: 'Quick start', icon: Zap, match: (p) => p.startsWith('/app/partida') },
+  { to: '/app/partida', label: 'Quick start', short: 'Start', icon: Zap, match: (p) => p.startsWith('/app/partida') },
   { to: '/app/analise', label: 'Land analysis', short: 'Analysis', icon: ScanSearch, match: (p) => p.startsWith('/app/analise') },
   { to: '/app/relatorios', label: 'My reports', short: 'Reports', icon: Files, match: (p) => p.startsWith('/app/relatorios') },
+  { to: '/app/assistente', label: 'Assistant', short: 'Chat', icon: MessagesSquare, match: (p) => p.startsWith('/app/assistente') },
 ]
 
 export function ThemeToggle({ compact, onDark }: { compact?: boolean; onDark?: boolean }) {
@@ -266,7 +267,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* Bottom bar (phone/tablet) */}
       <nav aria-label="Main menu" className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {NAV.map((n) => {
             const active = n.match(path)
             const Icon = n.icon
@@ -275,9 +276,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   to={n.to}
                   aria-current={active ? 'page' : undefined}
-                  className={cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[13px]', active ? 'font-bold text-primary' : 'text-muted')}
+                  className={cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[12px]', active ? 'font-bold text-primary' : 'text-muted')}
                 >
-                  <span className={cx('inline-flex h-8 w-14 items-center justify-center rounded-full', active && 'bg-tint')}>
+                  <span className={cx('inline-flex h-8 w-12 items-center justify-center rounded-full', active && 'bg-tint')}>
                     <Icon className="size-5" aria-hidden />
                   </span>
                   {n.short}
@@ -288,7 +289,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </ul>
       </nav>
 
-      <ChatWidget />
+      {/* The assistant page is the chat itself, so the popup is not shown there. */}
+      {!path.startsWith('/app/assistente') && <ChatWidget />}
     </div>
   )
 }

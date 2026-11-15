@@ -11,6 +11,7 @@ import QuickReport from '@/pages/QuickReport'
 import Analysis from '@/pages/Analysis'
 import Reports, { ReportView } from '@/pages/Reports'
 import Settings from '@/pages/Settings'
+import Assistant from '@/pages/Assistant'
 
 const TITLES: [RegExp, string][] = [
   [/^\/$/, 'earth + BR — Environmental intelligence for adaptive farming'],
@@ -22,6 +23,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/app\/analise/, 'Land analysis · earth + BR'],
   [/^\/app\/relatorios/, 'My reports · earth + BR'],
   [/^\/app\/configuracoes/, 'Settings · earth + BR'],
+  [/^\/app\/assistente/, 'Assistant · earth + BR'],
   [/^\/app/, 'Dashboard · earth + BR'],
 ]
 
@@ -47,6 +49,7 @@ function Routes() {
     else if (path === '/app/relatorios') page = <Reports />
     else if (reportMatch) page = <ReportView id={reportMatch[1]} />
     else if (path === '/app/configuracoes') page = <Settings />
+    else if (path === '/app/assistente') page = <Assistant />
     else page = <Dashboard />
     return <AppShell>{page}</AppShell>
   }
