@@ -81,14 +81,27 @@ export type Signal = {
 }
 export type Signals = { plot_id: number; reference_date: string; reference_date_adjusted: boolean; signals: Signal[] }
 
-export type MonthlyVariable = 'rain' | 'soil_moisture' | 'temperature'
+export type MonthlyVariable =
+  | 'rain'
+  | 'soil_moisture'
+  | 'temperature'
+  | 'temperature_max'
+  | 'et0'
+  | 'water_balance'
+  | 'dry_spell'
+  | 'rain_satellite'
+  | 'soil_moisture_satellite'
+  | 'ndvi'
 export type MonthlyValue = { label: string; value: number | null; normal: number | null; complete: boolean }
 export type MonthlyClimate = {
   plot_id: number
   source: string
   reference_date: string
   normal_period: string
-  variables: { variable: MonthlyVariable; unit: string; months: MonthlyValue[] }[]
+  /** `normal_period`: years behind each `normal` (e.g. "2001-2020"; satellite series differ). */
+  variables: { variable: MonthlyVariable; unit: string; source: string; normal_period: string; months: MonthlyValue[] }[]
+  /** Satellite variables with no data for this field yet. */
+  unavailable: MonthlyVariable[]
 }
 
 export type DailyValue = { date: string; value: number | null }

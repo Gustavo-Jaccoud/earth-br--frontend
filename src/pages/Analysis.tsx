@@ -13,10 +13,18 @@ export type AnalysisConfig = {
   vars: MonthlyVariable[]
 }
 
-const VARIABLES: { id: MonthlyVariable; label: string; source: SourceId; unit: string; decimals: number }[] = [
-  { id: 'rain', label: 'Rain', source: 'power', unit: 'mm', decimals: 0 },
-  { id: 'soil_moisture', label: 'Soil moisture (root zone)', source: 'power', unit: '%', decimals: 0 },
-  { id: 'temperature', label: 'Air temperature', source: 'power', unit: '°C', decimals: 1 },
+/** `helps`: what the variable is useful for, shown under its name. */
+const VARIABLES: { id: MonthlyVariable; label: string; helps: string; source: SourceId; unit: string; decimals: number }[] = [
+  { id: 'rain', label: 'Rain', helps: 'Shows how much it rained compared with what is usual for each month.', source: 'power', unit: 'mm', decimals: 0 },
+  { id: 'soil_moisture', label: 'Soil moisture (root zone)', helps: 'Shows how much water the roots can reach.', source: 'power', unit: '%', decimals: 0 },
+  { id: 'temperature', label: 'Air temperature', helps: 'Shows whether each month was warmer or cooler than usual.', source: 'power', unit: '°C', decimals: 1 },
+  { id: 'water_balance', label: 'Water balance', helps: 'Identifies water deficit and the need to replenish water.', source: 'power', unit: 'mm', decimals: 0 },
+  { id: 'rain_satellite', label: 'Satellite precipitation', helps: 'Helps monitor irregular rainfall and how it is distributed across the territory.', source: 'gpm', unit: 'mm', decimals: 0 },
+  { id: 'soil_moisture_satellite', label: 'Satellite soil moisture', helps: 'Helps track how much water is available in the soil.', source: 'smap', unit: '%', decimals: 0 },
+  { id: 'et0', label: 'Reference evapotranspiration', helps: 'Supports irrigation planning and the estimate of water demand.', source: 'power', unit: 'mm', decimals: 0 },
+  { id: 'temperature_max', label: 'Maximum temperature', helps: 'Helps identify periods of excessive heat and risk of heat stress.', source: 'power', unit: '°C', decimals: 1 },
+  { id: 'dry_spell', label: 'Longest dry spell', helps: 'Helps anticipate dry periods and plan the farming calendar.', source: 'power', unit: 'days', decimals: 0 },
+  { id: 'ndvi', label: 'NDVI – Vegetation vigor', helps: 'Shows changes in the health and development of crops.', source: 'modis', unit: '', decimals: 2 },
 ]
 const PERIODS: { months: AnalysisConfig['months']; label: string }[] = [
   { months: 12, label: 'Last 12 months' },
@@ -24,7 +32,6 @@ const PERIODS: { months: AnalysisConfig['months']; label: string }[] = [
 ]
 const AREA_LABEL = 'Whole property'
 const COMPARISON_LABEL = 'vs. historical average (2001–2020)'
-const REF_NAME = 'Historical average (2001–2020)'
 
 const DEFAULT_CONFIG: AnalysisConfig = { months: 12, vars: ['rain', 'soil_moisture', 'temperature'] }
 
@@ -45,6 +52,9 @@ export default function Analysis() {
 
   const plotId = activeProperty?.plotId ?? null
   const months = applied?.months ?? null
+  // Which satellite variables have no data for this field (a one-month request is enough to know).
+  const availability = useApi<MonthlyVariable[]>(plotId !== null ? `availability:${plotId}` : null, async () => (await api.monthlyClimate(plotId as number, 1)).unavailable)
+  const unavailable: MonthlyVariable[] = availability.status === 'ready' ? (availability.data ?? []) : []
   const req = useApi<AnalysisData>(months !== null && plotId !== null ? `${plotId}:${months}` : null, async () => {
     const id = plotId as number
     const [climate, signals, dry, suitability, crops] = await Promise.all([api.monthlyClimate(id, months as number), api.signals(id), api.dryYears(id), api.suitability(id), api.crops()])
@@ -63,10 +73,11 @@ export default function Analysis() {
   }
 
   const generate = () => {
-    if (draft.vars.length === 0) return setError('Choose at least one variable.')
-    setError('')
     // Keep the order of the variable list, whatever order the boxes were ticked in.
-    setApplied({ ...draft, vars: VARIABLES.map((v) => v.id).filter((id) => draft.vars.includes(id)) })
+    const vars = VARIABLES.map((v) => v.id).filter((id) => draft.vars.includes(id) && !unavailable.includes(id))
+    if (vars.length === 0) return setError('Choose at least one variable.')
+    setError('')
+    setApplied({ ...draft, vars })
     setEditing(false)
     setReport(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -91,7 +102,7 @@ export default function Analysis() {
 
       {(editing || !applied) && (
         <div className="grid items-start gap-6 lg:grid-cols-[360px_1fr]">
-          <FilterPanel draft={draft} setDraft={setDraft} onGenerate={generate} error={error} onCancel={applied ? () => setEditing(false) : undefined} />
+          <FilterPanel draft={draft} setDraft={setDraft} unavailable={unavailable} onGenerate={generate} error={error} onCancel={applied ? () => setEditing(false) : undefined} />
           <Card className="overflow-hidden p-6 lg:sticky lg:top-6">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -184,7 +195,7 @@ function Fieldset({ legend, children, help }: { legend: string; children: ReactN
 
 const selectCls = 'min-h-12 w-full rounded-[10px] border-2 border-line bg-surface px-3 text-[16px] focus:border-primary focus:outline-none'
 
-function FilterPanel({ draft, setDraft, onGenerate, error, onCancel }: { draft: AnalysisConfig; setDraft: (c: AnalysisConfig) => void; onGenerate: () => void; error: string; onCancel?: () => void }) {
+function FilterPanel({ draft, setDraft, unavailable, onGenerate, error, onCancel }: { draft: AnalysisConfig; setDraft: (c: AnalysisConfig) => void; unavailable: MonthlyVariable[]; onGenerate: () => void; error: string; onCancel?: () => void }) {
   return (
     <Card as="div" className="p-5">
       <h2 className="mb-5 flex items-center gap-2 text-[20px]">
@@ -208,20 +219,24 @@ function FilterPanel({ draft, setDraft, onGenerate, error, onCancel }: { draft: 
         <Fieldset legend="Variables">
           <div className="space-y-1">
             {VARIABLES.map((v) => {
-              const on = draft.vars.includes(v.id)
+              const missing = unavailable.includes(v.id)
+              const on = !missing && draft.vars.includes(v.id)
               return (
-                <label key={v.id} className={cx('flex min-h-12 cursor-pointer items-start gap-3 rounded-[10px] px-3 py-2.5', on ? 'bg-tint' : 'hover:bg-tint-2')}>
+                <label key={v.id} className={cx('flex min-h-12 items-start gap-3 rounded-[10px] px-3 py-2.5', missing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer', on ? 'bg-tint' : !missing && 'hover:bg-tint-2')}>
                   <input
                     type="checkbox"
                     checked={on}
+                    disabled={missing}
                     onChange={() => setDraft({ ...draft, vars: on ? draft.vars.filter((x) => x !== v.id) : [...draft.vars, v.id] })}
                     className="mt-0.5 size-5 shrink-0 accent-[var(--c-primary)]"
                   />
                   <span className="flex-1">
                     <span className={cx('block text-[16px]', on && 'font-bold')}>{v.label}</span>
-                    <span className="mt-0.5 inline-flex items-center gap-1 text-[13px] text-muted">
+                    <span className="mt-0.5 block text-[14px] leading-snug text-muted">{v.helps}</span>
+                    <span className="mt-1 inline-flex items-center gap-1 text-[13px] text-muted">
                       <Satellite className="size-3.5 text-primary" aria-hidden /> {DATA_SOURCES[v.source].name}
                     </span>
+                    {missing && <span className="mt-0.5 block text-[13px] font-bold text-muted">No data for this property yet</span>}
                   </span>
                 </label>
               )
@@ -332,16 +347,17 @@ function Results({ config, property, data, report, onReport }: { config: Analysi
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-[22px]">{meta.label} month by month</h2>
-                  <p className="text-muted">
-                    Monthly values, {periodLabel(config).toLowerCase()}, {COMPARISON_LABEL}.
+                  <p className="text-muted">{meta.helps}</p>
+                  <p className="text-[15px] text-muted">
+                    Monthly values, {periodLabel(config).toLowerCase()}, vs. historical average ({(series?.normal_period ?? '2001-2020').replace('-', '–')}).
                   </p>
                 </div>
                 <SourceBadge ids={[meta.source]} />
               </div>
-              {months.length > 0 ? <SeriesChart months={months} unit={unit} valueName={property.name} refName={REF_NAME} decimals={meta.decimals} /> : <p className="text-muted">No data for this variable in the period.</p>}
+              {months.length > 0 ? <SeriesChart months={months} unit={unit} valueName={property.name} refName={`Historical average (${(series?.normal_period ?? '2001-2020').replace('-', '–')})`} decimals={meta.decimals} /> : <p className="text-muted">No data for this variable in the period.</p>}
               {last && (
                 <p className="mt-3 rounded-[8px] bg-tint-2 p-3 text-[16px] text-ink">
-                  <strong>{monthLabel(last.label)}:</strong> {num(last.value, meta.decimals)} {unit}, against an average of {num(last.normal, meta.decimals)} {unit} ({diff >= 0 ? '+' : '−'}
+                  <strong>{monthLabel(last.label)}:</strong> {num(last.value, meta.decimals)} {unit}, against an average of {num(last.normal, meta.decimals)} {unit} ({Number(Math.abs(diff).toFixed(meta.decimals)) === 0 ? '' : diff > 0 ? '+' : '−'}
                   {num(Math.abs(diff), meta.decimals)} {unit}).
                 </p>
               )}
