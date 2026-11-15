@@ -25,13 +25,19 @@ export default function ChatWidget() {
   const [draft, setDraft] = useState('')
   const [waiting, setWaiting] = useState(false)
   const nextId = useRef(1)
+  const intro = useRef<string[]>([])
+  /** Changes with every new conversation, so a late answer for the previous property is dropped. */
+  const conversation = useRef(0)
   const list = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
 
   // A new property means a new conversation.
   useEffect(() => {
+    conversation.current += 1
     setMessages([])
     setDraft('')
+    setWaiting(false)
+    setSuggestions(intro.current)
   }, [plotId])
 
   // Greeting and starter questions, loaded the first time the chat opens.
@@ -40,10 +46,11 @@ export default function ChatWidget() {
     let cancelled = false
     api
       .chatIntro()
-      .then((intro) => {
+      .then((data) => {
         if (cancelled) return
-        setGreeting(intro.greeting)
-        setSuggestions((current) => (current.length ? current : intro.suggestions))
+        intro.current = data.suggestions
+        setGreeting(data.greeting)
+        setSuggestions((current) => (current.length ? current : data.suggestions))
       })
       .catch(() => {
         if (!cancelled) setGreeting('Hello! Ask me about the rain, the soil, the crops that suit your land or your reports.')
@@ -72,20 +79,25 @@ export default function ChatWidget() {
   async function send(text: string) {
     const question = text.trim().slice(0, MAX_LENGTH)
     if (!question || waiting || plotId === null) return
+    const asked = conversation.current
     add({ from: 'user', text: question })
     setDraft('')
     setWaiting(true)
     try {
       const [answer] = await Promise.all([api.chat(plotId, question), new Promise((r) => window.setTimeout(r, MIN_WAIT_MS))])
+      if (asked !== conversation.current) return // the property changed while waiting
       const reply = answer as ChatAnswer
       add({ from: 'assistant', text: reply.answer, sources: reply.sources })
       setSuggestions(reply.suggestions)
     } catch (e) {
+      if (asked !== conversation.current) return
       add({ from: 'error', text: e instanceof Error ? e.message : 'Something went wrong. Please try again.' })
       setDraft(question) // keep the question so it can be sent again
     } finally {
-      setWaiting(false)
-      input.current?.focus()
+      if (asked === conversation.current) {
+        setWaiting(false)
+        input.current?.focus()
+      }
     }
   }
 
@@ -137,7 +149,7 @@ export default function ChatWidget() {
                   </div>
                 ))}
                 {waiting && (
-                  <p className="w-fit rounded-[12px] rounded-bl-[4px] bg-tint px-3.5 py-2.5 text-[15px] text-muted" aria-label="The assistant is answering">
+                  <p role="status" className="w-fit rounded-[12px] rounded-bl-[4px] bg-tint px-3.5 py-2.5 text-[15px] text-muted">
                     <span className="animate-pulse">Looking at your data…</span>
                   </p>
                 )}
@@ -158,7 +170,7 @@ export default function ChatWidget() {
             )}
           </div>
 
-          <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-line p-3">
+          <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <input
               ref={input}
               value={draft}
