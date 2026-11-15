@@ -345,7 +345,7 @@ export default function Dashboard() {
             </h2>
             <p className="text-muted">The outline of your field. Drag to move, use the buttons to zoom.</p>
           </div>
-          <FieldMap key={activeProperty.id} polygon={activeProperty.polygon} label={`Map of ${activeProperty.name}`} coords={`${activeProperty.lat.toFixed(4)}, ${activeProperty.lon.toFixed(4)}`} />
+          <FieldMap key={activeProperty.id} polygon={activeProperty.polygon} reference={activeProperty.queryPolygon} label={`Map of ${activeProperty.name}`} coords={`${activeProperty.lat.toFixed(4)}, ${activeProperty.lon.toFixed(4)}`} />
           <Link to="/app/analise" className="mt-4 inline-flex min-h-12 items-center gap-1.5 font-bold text-primary underline-offset-4 hover:underline">
             Explore the data in detail <ArrowRight className="size-5" aria-hidden />
           </Link>

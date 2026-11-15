@@ -115,7 +115,7 @@ export default function Analysis() {
                 {draft.vars.length} {draft.vars.length === 1 ? 'variable' : 'variables'}
               </span>
             </div>
-            <FieldMap key={activeProperty.id} polygon={activeProperty.polygon} label={`Selection preview: ${activeProperty.name}`} />
+            <FieldMap key={activeProperty.id} polygon={activeProperty.polygon} reference={activeProperty.queryPolygon} label={`Selection preview: ${activeProperty.name}`} />
             <div className="mt-6">
               <p className="mb-3 text-[15px] font-bold text-ink">Sources that will be used:</p>
               <div className="flex flex-wrap gap-2">
@@ -331,7 +331,7 @@ function Results({ config, property, data, report, onReport }: { config: Analysi
             <h2 className="text-[22px]">Map — {AREA_LABEL.toLowerCase()}</h2>
             <p className="text-muted">The outline of the field at {property.name}. Drag to move, use the buttons to zoom.</p>
           </div>
-          <FieldMap polygon={property.polygon} label={`Map of ${property.name}`} />
+          <FieldMap polygon={property.polygon} reference={property.queryPolygon} label={`Map of ${property.name}`} />
         </Card>
 
         {/* Charts */}

@@ -4,6 +4,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { MONTHS_SHORT, type CalendarBand, type CropSegment } from '@/data/mock'
 import { api, type LonLat, type MapLayer, type MapLayerId, type MonthlyValue } from '@/lib/api'
 import LeafletMap from './LeafletMap'
+import { ringsDifferVisibly } from '@/lib/geo'
 import { cx } from './ui'
 
 /* ============================== Map ============================== */
@@ -44,8 +45,10 @@ export function MapLegend({ title, unit, legend = [], className }: { title?: str
 /**
  * Interactive map of the field. Satellite layers are shown only when the backend has them
  * (`/maps/{layer}` answers 404 until the satellite pipeline runs) — otherwise just the outline.
+ * `polygon` is the real boundary; `reference` is the server's query square, drawn dashed (with a
+ * caption) only when it can be told apart from the boundary.
  */
-export function FieldMap({ polygon, label, className, coords }: { polygon: LonLat[]; label: string; className?: string; coords?: string }) {
+export function FieldMap({ polygon, reference, label, className, coords }: { polygon: LonLat[]; reference?: LonLat[]; label: string; className?: string; coords?: string }) {
   const [layers, setLayers] = useState<Partial<Record<MapLayerId, MapLayer>>>({})
   const [layerId, setLayerId] = useState<MapLayerId | null>(null)
   const [period, setPeriod] = useState('')
@@ -66,6 +69,7 @@ export function FieldMap({ polygon, label, className, coords }: { polygon: LonLa
     }
   }, [])
 
+  const showReference = !!reference && ringsDifferVisibly(polygon, reference)
   const available = LAYER_IDS.filter((id) => layers[id])
   const layer = layerId ? layers[layerId] : undefined
   const current = layer ? (layer.periods.find((p) => p.period === period) ?? layer.periods[layer.periods.length - 1]) : undefined
@@ -102,9 +106,17 @@ export function FieldMap({ polygon, label, className, coords }: { polygon: LonLa
         </div>
       )}
       <div className="relative aspect-[16/10] overflow-hidden rounded-[12px] border border-line">
-        <LeafletMap polygon={polygon} overlay={current ? { url: api.staticUrl(current.url), bounds: current.bounds } : null} label={label} className="size-full" />
-        {coords && <span className="pointer-events-none absolute bottom-2 left-2 z-[1] rounded-full bg-surface/90 px-2.5 py-1 text-[13px] text-muted tabular">{coords}</span>}
+        <LeafletMap polygon={polygon} reference={showReference ? reference : null} overlay={current ? { url: api.staticUrl(current.url), bounds: current.bounds } : null} label={label} className="size-full" />
+        {coords && <span className="pointer-events-none absolute bottom-10 left-2 z-[1] rounded-full bg-surface/90 px-2.5 py-1 text-[13px] text-muted tabular">{coords}</span>}
       </div>
+      {showReference && (
+        <p className="mt-3 flex items-start gap-2.5 text-[14px] text-muted">
+          <svg width="28" height="14" viewBox="0 0 28 14" className="mt-1 shrink-0" aria-hidden>
+            <rect x="1" y="1" width="26" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" />
+          </svg>
+          <span>Dashed square: the reference area used for NASA POWER climate data — same size as your field, centred on it. The solid line is the real boundary.</span>
+        </p>
+      )}
       {layer && layerId && current && <MapLegend className="mt-4" title={`${LAYER_TITLE[layerId]} · ${monthLabel(current.period)}`} unit={layer.unit} legend={layer.legend} />}
     </div>
   )

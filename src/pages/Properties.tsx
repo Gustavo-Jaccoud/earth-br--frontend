@@ -1,10 +1,11 @@
-import { ArrowLeft, ArrowRight, Check, LoaderCircle, LocateFixed, MapPin, Plus, Satellite } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, LoaderCircle, LocateFixed, MapPin, Plus, Satellite, Trash2, TriangleAlert, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { CITIES_BY_STATE, PROCESSING_STEPS, STATES } from '@/data/mock'
 import { Button, ButtonLink, Card, ErrorState, Logo, Skeleton, SupportNote, cx } from '@/components/ui'
 import LeafletMap from '@/components/LeafletMap'
 import { ThemeToggle, formatHa } from '@/components/AppShell'
-import { ApiError, api, squareAround, type Crop } from '@/lib/api'
+import { ApiError, api, squareAround, type Crop, type LonLat } from '@/lib/api'
+import { ringAreaHa, ringCrossesItself } from '@/lib/geo'
 import { Link, navigate } from '@/lib/router'
 import { useStore } from '@/lib/store'
 
@@ -187,12 +188,20 @@ export function NewPropertyPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState<string | null>(null)
+  /** Where the map should move to (the device's location) while drawing; no marker is placed. */
+  const [focus, setFocus] = useState<null | [number, number]>(null)
+  /** Explains why the last tap or drag on the map was refused. */
+  const [drawNote, setDrawNote] = useState<string | null>(null)
   const [f, setF] = useState({
     name: '',
     state: 'SE',
     city: '',
     area: '',
     pin: null as null | [number, number],
+    /** How the field outline is defined: a square around `pin`, or the corners in `vertices`. */
+    mode: 'auto' as 'auto' | 'draw',
+    /** Corners of the drawn outline, in order, [lon, lat]. */
+    vertices: [] as LonLat[],
     /** Crop id from the server, '' = none, null = not answered yet. */
     crop: null as null | string,
   })
@@ -205,15 +214,31 @@ export function NewPropertyPage() {
   const area = parseArea(f.area)
   const areaOk = Number.isFinite(area) && area > 0
   // Outline the server will store: a square of the typed area around the marked point.
-  const outline = f.pin && areaOk ? squareAround(f.pin[0], f.pin[1], area).coordinates[0] : undefined
+  const outline = f.mode === 'auto' && f.pin && areaOk ? squareAround(f.pin[0], f.pin[1], area).coordinates[0] : undefined
+
+  const drawing = f.mode === 'draw'
+  const corners = f.vertices.length
+  const drawnCrossed = ringCrossesItself(f.vertices)
+  const drawnArea = ringAreaHa(f.vertices)
+  const drawnOk = corners >= 3 && !drawnCrossed && drawnArea > 0
+  const setVertices = (vertices: LonLat[]) => {
+    setF((s) => ({ ...s, vertices }))
+    setDrawNote(null)
+    setErrors((e) => ({ ...e, boundary: '' }))
+  }
 
   const validate = () => {
     const e: Record<string, string> = {}
     if (step === 1) {
       if (!f.name.trim()) e.name = 'Give the property a name.'
       if (!f.city) e.city = 'Choose the municipality.'
-      if (!f.pin) e.pin = 'Tap the map to mark where the property is, or use your location.'
-      if (!areaOk) e.area = 'Enter the area in hectares (e.g. 12).'
+      if (drawing) {
+        if (corners < 3) e.boundary = 'Tap the map to mark at least 3 corners of the property.'
+        else if (!drawnOk) e.boundary = 'The outline crosses itself. Drag a corner, undo the last point or clear and start again.'
+      } else {
+        if (!f.pin) e.pin = 'Tap the map to mark where the property is, or use your location.'
+        if (!areaOk) e.area = 'Enter the area in hectares (e.g. 12).'
+      }
     }
     if (step === 2 && f.crop === null) e.crop = 'Choose the current crop, or “None”.'
     setErrors(e)
@@ -223,11 +248,12 @@ export function NewPropertyPage() {
   const next = async () => {
     if (saving || !validate()) return
     if (step < 2) return setStep(step + 1)
-    if (!f.pin) return setStep(1)
+    if (drawing ? !drawnOk : !f.pin) return setStep(1)
     setSaving(true)
     setSaveError(null)
     try {
-      await addProperty({ name: f.name.trim(), state: f.state, city: f.city, areaHa: area, currentCrop: f.crop || null, lat: f.pin[0], lon: f.pin[1] })
+      const common = { name: f.name.trim(), state: f.state, city: f.city, currentCrop: f.crop || null }
+      await addProperty(drawing || !f.pin ? { ...common, boundary: f.vertices } : { ...common, areaHa: area, lat: f.pin[0], lon: f.pin[1] })
       navigate('/carregando')
     } catch (e) {
       setSaveError(e instanceof ApiError ? e.message : 'Could not save the property. Please try again.')
@@ -245,7 +271,10 @@ export function NewPropertyPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false)
-        setF((s) => ({ ...s, pin: [pos.coords.latitude, pos.coords.longitude] }))
+        const here: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+        // Automatic area: the location becomes the marked place. Drawing: the map just moves there.
+        if (drawing) setFocus([...here])
+        else setF((s) => ({ ...s, pin: here }))
         setErrors((e) => ({ ...e, pin: '' }))
       },
       (err) => {
@@ -308,25 +337,78 @@ export function NewPropertyPage() {
                   </select>
                 </Field>
               </div>
-              <Field label="Where is the property?" hint="Tap the map to mark the place, or use your phone’s location. Zoom in to be more precise." error={errors.pin}>
-                <div className={cx('overflow-hidden rounded-[12px] border-2', errors.pin ? 'border-crit' : 'border-line')}>
+              <div>
+                <p id="modo-area" className="mb-1.5 font-bold text-ink">
+                  How do you want to mark the area?
+                </p>
+                <div role="radiogroup" aria-labelledby="modo-area" className="grid gap-3 sm:grid-cols-2">
+                  <ChoiceCard selected={!drawing} onClick={() => set('mode', 'auto')}>
+                    <span className="font-bold">Automatic area</span>
+                    <span className="block text-[15px] text-muted">Mark one point and type the size. We draw a square around it.</span>
+                  </ChoiceCard>
+                  <ChoiceCard selected={drawing} onClick={() => set('mode', 'draw')}>
+                    <span className="font-bold">Draw the boundary</span>
+                    <span className="block text-[15px] text-muted">Tap the corners of your land on the map, one by one.</span>
+                  </ChoiceCard>
+                </div>
+              </div>
+              <Field
+                label={drawing ? 'Draw the boundary of the property' : 'Where is the property?'}
+                hint={
+                  drawing
+                    ? 'Zoom in on your land, then tap each corner in order, going around the property. Drag a numbered corner to adjust it. “Satellite” shows the land as seen from space.'
+                    : 'Tap the map to mark the place, or use your phone’s location. Zoom in to be more precise.'
+                }
+                error={drawing ? errors.boundary : errors.pin}
+              >
+                <div className={cx('overflow-hidden rounded-[12px] border-2', (drawing ? errors.boundary : errors.pin) ? 'border-crit' : 'border-line')}>
                   <LeafletMap
-                    className="aspect-[16/9] w-full"
-                    pin={f.pin}
+                    className="aspect-[4/3] w-full sm:aspect-[16/9]"
+                    pin={drawing ? null : f.pin}
                     polygon={outline}
                     onPick={(lat, lon) => {
                       set('pin', [lat, lon])
                       setLocateError(null)
                       setErrors((e) => ({ ...e, pin: '' }))
                     }}
-                    label="Map to mark where the property is"
+                    draw={drawing}
+                    vertices={f.vertices}
+                    onVerticesChange={setVertices}
+                    onDrawRejected={() => setDrawNote('That point would make the outline cross itself, so it was not added. Mark the corners in order, going around the property.')}
+                    drawInvalid={drawnCrossed}
+                    focus={focus}
+                    label={drawing ? 'Map to draw the boundary of the property' : 'Map to mark where the property is'}
                   />
                   <div className="flex flex-wrap items-center gap-3 border-t border-line bg-surface p-3">
                     <Button variant="secondary" size="sm" onClick={locate} disabled={locating}>
-                      <LocateFixed className={cx('size-[18px]', locating && 'animate-spin')} aria-hidden /> {locating ? 'Finding you…' : 'Use my location'}
+                      <LocateFixed className={cx('size-[18px]', locating && 'animate-spin')} aria-hidden /> {locating ? 'Finding you…' : drawing ? 'Go to my location' : 'Use my location'}
                     </Button>
+                    {drawing && (
+                      <>
+                        <Button variant="secondary" size="sm" onClick={() => setVertices(f.vertices.slice(0, -1))} disabled={corners === 0}>
+                          <Undo2 className="size-[18px]" aria-hidden /> Undo last point
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setVertices([])} disabled={corners === 0}>
+                          <Trash2 className="size-[18px]" aria-hidden /> Clear
+                        </Button>
+                      </>
+                    )}
                     <span className="text-[15px] text-muted" aria-live="polite">
-                      {f.pin ? (
+                      {drawing ? (
+                        drawnCrossed ? (
+                          <span className="inline-flex items-center gap-1.5 font-bold text-crit-ink">
+                            <TriangleAlert className="size-4 shrink-0" aria-hidden /> {corners} corners · the outline crosses itself
+                          </span>
+                        ) : drawnOk ? (
+                          <span className="inline-flex items-center gap-1.5 font-bold text-ok-ink tabular">
+                            <Check className="size-4 shrink-0" aria-hidden /> {corners} corners · outline ready
+                          </span>
+                        ) : corners === 0 ? (
+                          'No corners yet · tap the map to place the first'
+                        ) : (
+                          `${corners} of at least 3 corners · keep tapping the map`
+                        )
+                      ) : f.pin ? (
                         <span className="inline-flex items-center gap-1.5 font-bold text-ok-ink tabular">
                           <Check className="size-4" aria-hidden /> Place marked · {f.pin[0].toFixed(4)}, {f.pin[1].toFixed(4)}
                         </span>
@@ -335,6 +417,11 @@ export function NewPropertyPage() {
                       )}
                     </span>
                   </div>
+                  {drawing && (drawNote || drawnCrossed) && (
+                    <p role="alert" className="border-t border-line bg-warn-bg px-4 py-3 text-[15px] text-warn-ink">
+                      {drawNote ?? 'The line that closes the outline (from the last corner back to corner 1) crosses another side. Add the next corner, drag one, or undo the last point.'}
+                    </p>
+                  )}
                   {locateError && (
                     <p role="alert" className="border-t border-line bg-warn-bg px-4 py-3 text-[15px] text-warn-ink">
                       {locateError}
@@ -342,17 +429,28 @@ export function NewPropertyPage() {
                   )}
                 </div>
               </Field>
-              <Field
-                label="Area (in hectares)"
-                htmlFor="area"
-                error={errors.area}
-                hint="If you are not sure, an approximate value already helps. The field is drawn on the map as a square of this size around the place you marked."
-              >
-                <div className="relative max-w-56">
-                  <input id="area" inputMode="decimal" className={cx(inputCls, 'pr-14 tabular')} value={f.area} onChange={(e) => set('area', e.target.value)} placeholder="12" aria-invalid={!!errors.area} />
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted">ha</span>
+              {drawing ? (
+                <div>
+                  <p className="mb-1.5 font-bold text-ink">Area (calculated from your drawing)</p>
+                  <p className="mb-2 text-[15px] text-muted">It updates as you add or move corners. You do not need to type it.</p>
+                  <output aria-live="polite" className="flex min-h-12 max-w-56 items-center justify-between rounded-[12px] border-2 border-line bg-tint-2 px-4 text-[17px] text-ink tabular">
+                    <span className="font-bold">{drawnOk ? drawnArea.toLocaleString('en-US', { maximumFractionDigits: drawnArea < 10 ? 2 : 1 }) : '—'}</span>
+                    <span className="text-muted">ha</span>
+                  </output>
                 </div>
-              </Field>
+              ) : (
+                <Field
+                  label="Area (in hectares)"
+                  htmlFor="area"
+                  error={errors.area}
+                  hint="If you are not sure, an approximate value already helps. The field is drawn on the map as a square of this size around the place you marked."
+                >
+                  <div className="relative max-w-56">
+                    <input id="area" inputMode="decimal" className={cx(inputCls, 'pr-14 tabular')} value={f.area} onChange={(e) => set('area', e.target.value)} placeholder="12" aria-invalid={!!errors.area} />
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted">ha</span>
+                  </div>
+                </Field>
+              )}
             </>
           )}
 

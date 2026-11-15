@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, squareAround, type LonLat, type QuizAnswers, type Report, type ReportSummary } from '@/lib/api'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { api, squareAround, type Farm, type LonLat, type Plot, type QuizAnswers, type Report, type ReportSummary } from '@/lib/api'
+import { ringToPolygon } from '@/lib/geo'
 
 export type Toast = { id: number; message: string; action?: { label: string; to: string } }
 
@@ -15,13 +16,38 @@ export type Property = {
   areaHa: number
   /** Backend crop id (see `api.crops()`), or null. */
   currentCrop: string | null
+  /** Centre of the query square. */
   lat: number
   lon: number
-  /** Field outline, GeoJSON ring ([lon, lat] pairs). */
+  /** Real boundary of the field, GeoJSON ring ([lon, lat] pairs) — what maps show. */
   polygon: LonLat[]
+  /** Server-made square with the same area, centred on the boundary: the reference area for NASA POWER queries. Not the field outline. */
+  queryPolygon: LonLat[]
 }
 
-export type NewProperty = { name: string; state: string; city: string; areaHa: number; currentCrop: string | null; lat: number; lon: number }
+/** The field is either a square of `areaHa` around a point, or an outline drawn by the user. */
+export type NewProperty = { name: string; state: string; city: string; currentCrop: string | null } & (
+  | { areaHa: number; lat: number; lon: number; boundary?: undefined }
+  /** Corners of the drawn outline, in order, [lon, lat] pairs, not closed (at least 3). */
+  | { boundary: LonLat[] }
+)
+
+function toProperty(farm: Farm, plot: Plot): Property {
+  return {
+    id: farm.id,
+    plotId: plot.id,
+    name: farm.name,
+    state: farm.state,
+    city: farm.municipality,
+    areaHa: plot.area_ha,
+    currentCrop: plot.current_crop,
+    lat: plot.centroid[1],
+    lon: plot.centroid[0],
+    polygon: plot.geometry.coordinates[0],
+    // Older servers do not send the query square; it then equals the boundary.
+    queryPolygon: (plot.query_geometry ?? plot.geometry).coordinates[0],
+  }
+}
 
 type Prefs = { theme: 'light' | 'dark'; largeText: boolean; activePropertyId: number | null }
 
@@ -80,20 +106,7 @@ async function fetchProperties(): Promise<Property[]> {
   return farms.flatMap((farm, i) => {
     const plot = plots[i][0]
     if (!plot) return []
-    return [
-      {
-        id: farm.id,
-        plotId: plot.id,
-        name: farm.name,
-        state: farm.state,
-        city: farm.municipality,
-        areaHa: plot.area_ha,
-        currentCrop: plot.current_crop,
-        lat: plot.centroid[1],
-        lon: plot.centroid[0],
-        polygon: plot.geometry.coordinates[0],
-      },
-    ]
+    return [toProperty(farm, plot)]
   })
 }
 
@@ -146,21 +159,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [dismissToast],
   )
 
+  // Farm already created by an attempt whose field was rejected: reused on retry so no empty farm is left behind twice.
+  const pendingFarm = useRef<Farm | null>(null)
   const addProperty = useCallback(async (p: NewProperty): Promise<Property> => {
-    const farm = await api.createFarm({ name: p.name, municipality: p.city, state: p.state })
-    const plot = await api.createPlot(farm.id, { name: p.name, current_crop: p.currentCrop, geometry: squareAround(p.lat, p.lon, p.areaHa) })
-    const property: Property = {
-      id: farm.id,
-      plotId: plot.id,
-      name: farm.name,
-      state: farm.state,
-      city: farm.municipality,
-      areaHa: plot.area_ha,
-      currentCrop: plot.current_crop,
-      lat: plot.centroid[1],
-      lon: plot.centroid[0],
-      polygon: plot.geometry.coordinates[0],
-    }
+    const kept = pendingFarm.current
+    const farm = kept && kept.name === p.name && kept.municipality === p.city && kept.state === p.state ? kept : await api.createFarm({ name: p.name, municipality: p.city, state: p.state })
+    pendingFarm.current = farm
+    // `geometry` is the real boundary; the server derives the query square from it.
+    const geometry = p.boundary ? ringToPolygon(p.boundary) : squareAround(p.lat, p.lon, p.areaHa)
+    const plot = await api.createPlot(farm.id, { name: p.name, current_crop: p.currentCrop, geometry })
+    pendingFarm.current = null
+    const property = toProperty(farm, plot)
     setProperties((list) => [...list, property])
     setPrefs((s) => ({ ...s, activePropertyId: property.id }))
     return property
