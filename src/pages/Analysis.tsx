@@ -218,15 +218,14 @@ function FilterPanel({ draft, setDraft, unavailable, onGenerate, error, onCancel
 
         <Fieldset legend="Variables">
           <div className="space-y-1">
-            {VARIABLES.map((v) => {
-              const missing = unavailable.includes(v.id)
-              const on = !missing && draft.vars.includes(v.id)
+            {/* Variables with no data for this property are left out of the list. */}
+            {VARIABLES.filter((v) => !unavailable.includes(v.id)).map((v) => {
+              const on = draft.vars.includes(v.id)
               return (
-                <label key={v.id} className={cx('flex min-h-12 items-start gap-3 rounded-[10px] px-3 py-2.5', missing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer', on ? 'bg-tint' : !missing && 'hover:bg-tint-2')}>
+                <label key={v.id} className={cx('flex min-h-12 cursor-pointer items-start gap-3 rounded-[10px] px-3 py-2.5', on ? 'bg-tint' : 'hover:bg-tint-2')}>
                   <input
                     type="checkbox"
                     checked={on}
-                    disabled={missing}
                     onChange={() => setDraft({ ...draft, vars: on ? draft.vars.filter((x) => x !== v.id) : [...draft.vars, v.id] })}
                     className="mt-0.5 size-5 shrink-0 accent-[var(--c-primary)]"
                   />
@@ -236,7 +235,6 @@ function FilterPanel({ draft, setDraft, unavailable, onGenerate, error, onCancel
                     <span className="mt-1 inline-flex items-center gap-1 text-[13px] text-muted">
                       <Satellite className="size-3.5 text-primary" aria-hidden /> {DATA_SOURCES[v.source].name}
                     </span>
-                    {missing && <span className="mt-0.5 block text-[13px] font-bold text-muted">No data for this property yet</span>}
                   </span>
                 </label>
               )
