@@ -1,64 +1,25 @@
-import { MessageCircle, Send, X } from 'lucide-react'
+import { Maximize2, MessageCircle, MessageSquarePlus, Send, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, type ChatAnswer } from '@/lib/api'
+import { ASSISTANT_MAX_LENGTH, useAssistant } from '@/lib/assistant'
 import { Link } from '@/lib/router'
 import { useStore } from '@/lib/store'
 import { cx } from './ui'
 
-type Message = { id: number; from: 'user' | 'assistant' | 'error'; text: string; sources?: string[] }
-
-const MAX_LENGTH = 500
-/** Short pause so the answer does not flash in before the question settles. */
-const MIN_WAIT_MS = 500
-
 /**
  * Demo assistant popup. There is no AI: the backend picks a pre-written answer by keywords and
- * fills it with the active property's real data.
+ * fills it with the active property's real data. The conversation is shared with the full-page
+ * assistant (see lib/assistant.ts).
  */
 export default function ChatWidget() {
   const { activeProperty } = useStore()
   const plotId = activeProperty?.plotId ?? null
+  const chat = useAssistant(plotId)
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [greeting, setGreeting] = useState('')
   const [draft, setDraft] = useState('')
-  const [waiting, setWaiting] = useState(false)
-  const nextId = useRef(1)
-  const intro = useRef<string[]>([])
-  /** Changes with every new conversation, so a late answer for the previous property is dropped. */
-  const conversation = useRef(0)
   const list = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
 
-  // A new property means a new conversation.
-  useEffect(() => {
-    conversation.current += 1
-    setMessages([])
-    setDraft('')
-    setWaiting(false)
-    setSuggestions(intro.current)
-  }, [plotId])
-
-  // Greeting and starter questions, loaded the first time the chat opens.
-  useEffect(() => {
-    if (!open || greeting) return
-    let cancelled = false
-    api
-      .chatIntro()
-      .then((data) => {
-        if (cancelled) return
-        intro.current = data.suggestions
-        setGreeting(data.greeting)
-        setSuggestions((current) => (current.length ? current : data.suggestions))
-      })
-      .catch(() => {
-        if (!cancelled) setGreeting('Hello! Ask me about the rain, the soil, the crops that suit your land or your reports.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, greeting])
+  useEffect(() => setDraft(''), [plotId, chat.current?.id])
 
   useEffect(() => {
     if (!open) return
@@ -72,33 +33,13 @@ export default function ChatWidget() {
 
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight })
-  }, [messages, waiting, open])
-
-  const add = (m: Omit<Message, 'id'>) => setMessages((all) => [...all, { ...m, id: nextId.current++ }])
+  }, [chat.messages.length, chat.waiting, open])
 
   async function send(text: string) {
-    const question = text.trim().slice(0, MAX_LENGTH)
-    if (!question || waiting || plotId === null) return
-    const asked = conversation.current
-    add({ from: 'user', text: question })
     setDraft('')
-    setWaiting(true)
-    try {
-      const [answer] = await Promise.all([api.chat(plotId, question), new Promise((r) => window.setTimeout(r, MIN_WAIT_MS))])
-      if (asked !== conversation.current) return // the property changed while waiting
-      const reply = answer as ChatAnswer
-      add({ from: 'assistant', text: reply.answer, sources: reply.sources })
-      setSuggestions(reply.suggestions)
-    } catch (e) {
-      if (asked !== conversation.current) return
-      add({ from: 'error', text: e instanceof Error ? e.message : 'Something went wrong. Please try again.' })
-      setDraft(question) // keep the question so it can be sent again
-    } finally {
-      if (asked === conversation.current) {
-        setWaiting(false)
-        input.current?.focus()
-      }
-    }
+    const failed = await chat.send(text)
+    if (failed) setDraft(failed) // keep the question so it can be sent again
+    input.current?.focus()
   }
 
   function onSubmit(e: FormEvent) {
@@ -113,14 +54,22 @@ export default function ChatWidget() {
           role="dialog"
           aria-label="earth + BR assistant"
           className="fixed inset-x-0 bottom-0 z-[70] flex max-h-[85dvh] flex-col border border-line bg-surface shadow-2xl sm:inset-x-auto sm:bottom-24 sm:right-6 sm:h-[560px] sm:w-[380px] sm:rounded-[16px] lg:bottom-24">
-          <header className="flex items-start justify-between gap-3 rounded-t-[16px] bg-primary px-4 py-3 text-on-primary">
+          <header className="flex items-start justify-between gap-2 rounded-t-[16px] bg-primary px-4 py-3 text-on-primary">
             <div>
               <h2 className="text-[17px] font-bold text-on-primary">earth + BR assistant</h2>
               <p className="mt-0.5 text-[13px] leading-snug opacity-90">Demo assistant · pre-written answers built from your property's data. Not an AI.</p>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close the assistant" className="-mr-1 rounded-full p-1.5 hover:bg-white/15">
-              <X className="size-5" aria-hidden />
-            </button>
+            <div className="-mr-1 flex shrink-0 items-center">
+              <button type="button" onClick={() => chat.newChat()} aria-label="New chat" title="New chat" className="rounded-full p-1.5 hover:bg-white/15">
+                <MessageSquarePlus className="size-5" aria-hidden />
+              </button>
+              <Link to="/app/assistente" onClick={() => setOpen(false)} aria-label="Open the full assistant with history" title="Open full screen" className="rounded-full p-1.5 hover:bg-white/15">
+                <Maximize2 className="size-5" aria-hidden />
+              </Link>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close the assistant" title="Close" className="rounded-full p-1.5 hover:bg-white/15">
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
           </header>
 
           <div ref={list} aria-live="polite" className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
@@ -133,9 +82,11 @@ export default function ChatWidget() {
               </p>
             ) : (
               <>
-                {greeting && <p className="max-w-[88%] rounded-[12px] rounded-bl-[4px] bg-tint px-3.5 py-2.5 text-[15px] text-ink">{greeting}</p>}
-                {messages.map((m) => (
-                  <div key={m.id} className={cx('flex', m.from === 'user' ? 'justify-end' : 'justify-start')}>
+                {chat.messages.length === 0 && chat.greeting && (
+                  <p className="max-w-[88%] rounded-[12px] rounded-bl-[4px] bg-tint px-3.5 py-2.5 text-[15px] text-ink">{chat.greeting}</p>
+                )}
+                {chat.messages.map((m, i) => (
+                  <div key={i} className={cx('flex', m.from === 'user' ? 'justify-end' : 'justify-start')}>
                     <div
                       className={cx(
                         'max-w-[88%] rounded-[12px] px-3.5 py-2.5 text-[15px] leading-relaxed',
@@ -148,19 +99,20 @@ export default function ChatWidget() {
                     </div>
                   </div>
                 ))}
-                {waiting && (
+                {chat.waiting && (
                   <p role="status" className="w-fit rounded-[12px] rounded-bl-[4px] bg-tint px-3.5 py-2.5 text-[15px] text-muted">
                     <span className="animate-pulse">Looking at your data…</span>
                   </p>
                 )}
-                {!waiting && suggestions.length > 0 && (
+                {!chat.waiting && chat.suggestions.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {suggestions.map((s) => (
+                    {chat.suggestions.map((s) => (
                       <button
                         key={s}
                         type="button"
+                        disabled={chat.busy}
                         onClick={() => void send(s)}
-                        className="rounded-full border border-primary/40 px-3 py-1.5 text-left text-[13px] font-bold text-primary hover:bg-tint">
+                        className="rounded-full border border-primary/40 px-3 py-1.5 text-left text-[13px] font-bold text-primary hover:bg-tint disabled:opacity-50">
                         {s}
                       </button>
                     ))}
@@ -175,7 +127,7 @@ export default function ChatWidget() {
               ref={input}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              maxLength={MAX_LENGTH}
+              maxLength={ASSISTANT_MAX_LENGTH}
               disabled={plotId === null}
               placeholder="Ask about your land…"
               aria-label="Your question"
@@ -183,7 +135,7 @@ export default function ChatWidget() {
             />
             <button
               type="submit"
-              disabled={!draft.trim() || waiting || plotId === null}
+              disabled={!draft.trim() || chat.busy || plotId === null}
               aria-label="Send"
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-40">
               <Send className="size-5" aria-hidden />

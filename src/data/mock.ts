@@ -153,11 +153,12 @@ export const GLOSSARY: Record<GlossaryKey, { term: string; plain: string }> = {
 /* User and places                                                     */
 /* ------------------------------------------------------------------ */
 
+/** There are no user accounts: everyone uses the app as a visitor. */
 export const USER = {
-  firstName: 'Maria',
-  fullName: 'Maria das Dores Santos',
-  role: 'Farmer',
-  initials: 'MS',
+  firstName: 'visitor',
+  fullName: 'Visitor',
+  role: 'Demo access',
+  initials: 'V',
 }
 
 export const STATES = ['AL', 'BA', 'CE', 'MA', 'MG', 'PB', 'PE', 'PI', 'RN', 'SE']
